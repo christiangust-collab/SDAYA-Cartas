@@ -1,0 +1,26 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use App\Enums\RolUsuario;
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class EnsureUserHasRole
+{
+    /**
+     * @param  Closure(Request): Response  $next
+     */
+    public function handle(Request $request, Closure $next, string ...$roles): Response
+    {
+        $user = $request->user();
+        $rolActual = $user?->role;
+        $valorRol = $rolActual instanceof RolUsuario ? $rolActual->value : $rolActual;
+
+        abort_unless($user && in_array($valorRol, $roles, true), 403);
+
+        return $next($request);
+    }
+}
+

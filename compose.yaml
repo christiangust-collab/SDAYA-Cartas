@@ -1,0 +1,46 @@
+name: sdaya-cartas
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-sdaya_cartas}
+      POSTGRES_USER: ${DB_USERNAME:-sdaya}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sdaya_local_cambiar}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-sdaya} -d ${DB_DATABASE:-sdaya_cartas}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build:
+      context: .
+      args:
+        INSTALL_DEV: "true"
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - documentos_data:/var/www/html/storage/app/private
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  postgres_data:
+  documentos_data:

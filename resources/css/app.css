@@ -1,0 +1,466 @@
+@import 'tailwindcss';
+@import 'quill/dist/quill.snow.css';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Montserrat', 'Aptos', ui-sans-serif, system-ui, sans-serif;
+    --color-sdaya-50: #f3f7fc;
+    --color-sdaya-100: #e7eff8;
+    --color-sdaya-200: #c9dcef;
+    --color-sdaya-300: #9bbfe1;
+    --color-sdaya-400: #73b7c7;
+    --color-sdaya-500: #437dbf;
+    --color-sdaya-600: #4766a9;
+    --color-sdaya-700: #38528d;
+    --color-sdaya-800: #2f4674;
+    --color-sdaya-900: #293d61;
+    --color-sdaya-950: #172944;
+}
+
+@layer base {
+    :root {
+        color-scheme: light;
+        font-synthesis: none;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+        @apply bg-[#f5f7fb] text-slate-900;
+        min-width: 320px;
+    }
+
+    button, a, input, select, textarea, summary {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    :focus { scroll-margin-top: 6rem; scroll-margin-bottom: 4rem; }
+
+    ::selection {
+        background: rgb(115 183 199 / 35%);
+        color: #172944;
+    }
+}
+
+@layer components {
+    .sdaya-grid {
+        background-color: #f7f9fc;
+        background-image:
+            linear-gradient(rgb(71 102 169 / 4.5%) 1px, transparent 1px),
+            linear-gradient(90deg, rgb(71 102 169 / 4.5%) 1px, transparent 1px),
+            radial-gradient(circle at 8% 2%, rgb(115 183 199 / 19%), transparent 27rem),
+            radial-gradient(circle at 92% 25%, rgb(67 125 191 / 10%), transparent 24rem);
+        background-size: 32px 32px, 32px 32px, auto, auto;
+    }
+
+    .focus-ring, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger,
+    .form-input, .form-select, .form-textarea, .nav-link, .tab-button,
+    .icon-button {
+        @apply focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-sdaya-400/60 focus-visible:ring-offset-2;
+    }
+
+    .skip-link {
+        @apply fixed top-3 left-3 z-[100] -translate-y-24 rounded-xl bg-sdaya-950 px-4 py-3 text-sm font-extrabold text-white shadow-xl transition-transform focus:translate-y-0 focus:outline-none focus:ring-3 focus:ring-sdaya-300;
+    }
+
+    .app-shell { min-height: 100vh; }
+
+    .card {
+        @apply rounded-2xl border border-slate-200/90 bg-white;
+        box-shadow: 0 1px 2px rgb(23 41 68 / 4%), 0 10px 32px rgb(23 41 68 / 4%);
+    }
+
+    .card-elevated {
+        @apply rounded-3xl border border-white/80 bg-white;
+        box-shadow: 0 24px 70px rgb(23 41 68 / 15%);
+    }
+
+    .section-header {
+        @apply flex items-start gap-4 border-b border-slate-200/90 pb-5;
+    }
+
+    .section-number {
+        @apply grid size-10 shrink-0 place-items-center rounded-xl bg-sdaya-50 text-xs font-black tracking-wider text-sdaya-700 ring-1 ring-sdaya-200;
+    }
+
+    .eyebrow {
+        @apply text-xs font-black tracking-[0.18em] uppercase;
+    }
+
+    .btn-primary, .btn-secondary, .btn-ghost, .btn-danger {
+        @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-center text-sm font-extrabold transition-[background-color,border-color,color,box-shadow,transform] duration-200 disabled:cursor-not-allowed disabled:opacity-55;
+    }
+
+    .btn-primary {
+        @apply border border-sdaya-600 bg-sdaya-600 text-white hover:border-sdaya-700 hover:bg-sdaya-700 active:translate-y-px active:bg-sdaya-800;
+        box-shadow: 0 8px 20px rgb(71 102 169 / 20%);
+    }
+
+    .btn-primary:hover { box-shadow: 0 11px 24px rgb(71 102 169 / 27%); }
+    .btn-secondary { @apply border border-sdaya-200 bg-white text-sdaya-800 hover:border-sdaya-300 hover:bg-sdaya-50 active:translate-y-px; }
+    .btn-ghost { @apply border border-transparent text-slate-600 hover:bg-slate-100 hover:text-sdaya-950; }
+    .btn-danger { @apply border border-red-700 bg-red-700 text-white hover:bg-red-800 active:translate-y-px; }
+
+    .icon-button {
+        @apply inline-grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-sdaya-200 hover:bg-sdaya-50 hover:text-sdaya-800;
+    }
+
+    .form-label { @apply mb-2 block text-sm font-extrabold text-slate-700; }
+
+    .form-input, .form-select, .form-textarea {
+        @apply block min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-950 placeholder:text-slate-400 hover:border-slate-400 focus:border-sdaya-500;
+        box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
+        transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+        box-shadow: 0 0 0 4px rgb(115 183 199 / 15%);
+    }
+
+    .form-textarea { @apply resize-y leading-6; }
+    .form-input:read-only { @apply cursor-not-allowed bg-slate-100 text-slate-600; }
+    .form-input[aria-invalid='true'], .form-select[aria-invalid='true'], .form-textarea[aria-invalid='true'] { @apply border-red-500 bg-red-50/50; }
+
+    .field-note { @apply mt-2 flex items-start gap-2 text-xs leading-5 text-slate-500; }
+
+    .nav-section-label {
+        @apply px-3 pb-2 pt-5 text-[10px] font-black tracking-[0.2em] text-sdaya-300 uppercase first:pt-1;
+    }
+
+    .nav-link {
+        @apply relative flex min-h-11 items-center gap-3 rounded-xl border border-transparent px-3.5 py-2.5 text-sm font-semibold text-sdaya-100 transition-[background-color,border-color,color,transform] duration-200 hover:translate-x-0.5 hover:bg-white/8 hover:text-white;
+    }
+
+    .nav-link svg { @apply text-sdaya-300 transition-colors; }
+
+    .nav-link-active {
+        @apply border-white/15 bg-white/12 text-white shadow-sm hover:bg-white/15 hover:text-white;
+    }
+
+    .nav-link-active::before {
+        content: '';
+        @apply absolute top-2.5 bottom-2.5 -left-1 w-1 rounded-full bg-sdaya-400;
+        box-shadow: 0 0 14px rgb(115 183 199 / 75%);
+    }
+
+    .nav-link-active svg { @apply text-sdaya-300; }
+
+    .tab-button { @apply relative flex min-h-12 shrink-0 items-center gap-2 border-b-3 border-transparent px-4 text-sm font-extrabold text-slate-500 transition-colors hover:text-sdaya-700; }
+    .tab-button[aria-selected='true'] { @apply border-sdaya-600 text-sdaya-800; }
+    .tab-count { @apply rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600; }
+
+    .status-pill { @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black tracking-wide uppercase; }
+    .status-pill::before { content: ''; @apply size-1.5 rounded-full bg-current; }
+    .status-active { @apply border-emerald-200 bg-emerald-50 text-emerald-800; }
+    .status-inactive { @apply border-slate-200 bg-slate-100 text-slate-600; }
+
+    .detail-term { @apply text-[10px] font-black tracking-[0.14em] text-slate-500 uppercase; }
+    .detail-value { @apply mt-1.5 text-sm font-bold leading-6 text-slate-900; }
+    .integrity-check { @apply flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold; }
+    .integrity-ok { @apply border-emerald-200 bg-emerald-50 text-emerald-800; }
+    .integrity-fail { @apply border-red-200 bg-red-50 text-red-800; }
+
+    .document-sheet {
+        @apply relative overflow-hidden rounded-2xl border border-slate-200 bg-white;
+        box-shadow: inset 0 4px 0 #73b7c7, 0 16px 42px rgb(23 41 68 / 6%);
+    }
+
+    .document-content, .ql-editor { @apply text-[0.98rem] leading-7 text-slate-700; }
+    .document-content p, .ql-editor p { @apply mb-4; }
+    .document-content ul, .ql-editor ul { @apply mb-4 list-disc pl-7; }
+    .document-content ol, .ql-editor ol { @apply mb-4 list-decimal pl-7; }
+    .document-content a, .ql-editor a { @apply font-semibold text-sdaya-700 underline decoration-sdaya-300 underline-offset-2; }
+    .document-content blockquote, .ql-editor blockquote { @apply my-4 border-l-4 border-sdaya-300 bg-sdaya-50 py-2 pr-3 pl-4 italic; }
+    .document-content .ql-align-center, .ql-editor .ql-align-center { text-align: center; }
+    .document-content .ql-align-right, .ql-editor .ql-align-right { text-align: right; }
+    .document-content .ql-align-justify, .ql-editor .ql-align-justify { text-align: justify; }
+
+    .document-content img, .ql-editor img { max-width: 100%; height: auto; }
+.ql-editor img { cursor: grab; }
+.ql-editor img[data-arrastrando] { cursor: grabbing; opacity: .45; }
+
+/* Imágenes flotantes (modo «detrás del texto» estilo Word) */
+.document-content, .ql-editor { position: relative; }
+.ql-editor img.ql-flotante { position: absolute; z-index: 5; cursor: move; }
+.ql-editor img.ql-flotante:hover { outline: 2px dashed #437dbf; outline-offset: 2px; }
+.document-content img.ql-flotante { position: absolute; z-index: 0; }
+
+/* Imagen seleccionada: handles de resize */
+.ql-editor img.sdaya-selected {
+    outline: 2px solid #437dbf;
+    outline-offset: 1px;
+}
+.sdaya-resize-wrapper {
+    position: relative;
+    display: inline-block;
+    cursor: default;
+}
+.sdaya-resize-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #437dbf;
+    border: 2px solid white;
+    border-radius: 2px;
+    z-index: 10;
+}
+.sdaya-resize-handle[data-pos="se"] { bottom: -5px; right: -5px; cursor: se-resize; }
+.sdaya-resize-handle[data-pos="sw"] { bottom: -5px; left: -5px; cursor: sw-resize; }
+.sdaya-resize-handle[data-pos="ne"] { top: -5px; right: -5px; cursor: ne-resize; }
+.sdaya-resize-handle[data-pos="nw"] { top: -5px; left: -5px; cursor: nw-resize; }
+
+/* Botones de alineación del encabezado */
+.align-btn[aria-pressed="true"] {
+    background-color: #e7eff8;
+    border-color: #4766a9;
+    color: #293d61;
+}
+.align-btn[aria-pressed="false"] {
+    background-color: white;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+.align-btn[aria-pressed="false"]:hover {
+    background-color: #f3f7fc;
+    border-color: #9bbfe1;
+    color: #293d61;
+}
+
+    @font-face {
+        font-family: 'Montserrat';
+        src: url('/fonts/Montserrat-Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+    }
+    @font-face {
+        font-family: 'Montserrat';
+        src: url('/fonts/Montserrat-Bold.ttf') format('truetype');
+        font-weight: bold;
+        font-style: normal;
+        font-display: swap;
+    }
+    @font-face {
+        font-family: 'Montserrat';
+        src: url('/fonts/Montserrat-Italic.ttf') format('truetype');
+        font-weight: normal;
+        font-style: italic;
+        font-display: swap;
+    }
+    @font-face {
+        font-family: 'Montserrat';
+        src: url('/fonts/Montserrat-BoldItalic.ttf') format('truetype');
+        font-weight: bold;
+        font-style: italic;
+        font-display: swap;
+    }
+
+    /*
+        Las fuentes, tamaños y etiquetas del toolbar de Quill se declaran
+        FUERA de @layer components (ver final del archivo): quill.snow.css
+        se importa sin capa y en la cascada CSS lo sin capa siempre gana,
+        sin importar la especificidad. Dentro de una capa, sus reglas por
+        defecto ('Sans Serif' / 'Normal') nunca podrían sobrescribirse.
+    */
+
+    .ql-toolbar.ql-snow { @apply rounded-t-xl border-slate-300 bg-slate-50/80 px-3 py-3; }
+    .ql-container.ql-snow { @apply min-h-80 rounded-b-xl border-slate-300 bg-white text-sm; }
+    .ql-editor { @apply min-h-80 px-5 py-4; }
+    .ql-editor:focus { @apply ring-3 ring-sdaya-400/50 outline-none; }
+
+    .public-nav-link { @apply rounded-lg px-3 py-2 text-sm font-extrabold text-slate-600 transition-colors hover:bg-sdaya-50 hover:text-sdaya-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-sdaya-400/60; }
+
+    .trust-chip { @apply inline-flex items-center gap-2 rounded-full border border-sdaya-200/80 bg-white/85 px-3 py-2 text-xs font-extrabold text-sdaya-900 shadow-sm backdrop-blur; }
+
+    .verification-panel {
+        background-image: linear-gradient(135deg, #172944 0%, #293d61 58%, #2f5578 100%);
+    }
+
+    .guest-brand-panel {
+        background-color: #172944;
+        background-image:
+            linear-gradient(rgb(115 183 199 / 8%) 1px, transparent 1px),
+            linear-gradient(90deg, rgb(115 183 199 / 8%) 1px, transparent 1px),
+            radial-gradient(circle at 25% 18%, rgb(115 183 199 / 28%), transparent 22rem),
+            radial-gradient(circle at 82% 88%, rgb(67 125 191 / 26%), transparent 25rem);
+        background-size: 38px 38px, 38px 38px, auto, auto;
+    }
+
+    .guest-brand-panel::after {
+        content: '';
+        position: absolute;
+        inset: auto -7rem -9rem auto;
+        width: 24rem;
+        height: 24rem;
+        border: 1px solid rgb(115 183 199 / 20%);
+        border-radius: 9999px;
+        box-shadow: 0 0 0 3.5rem rgb(115 183 199 / 4%), 0 0 0 7rem rgb(115 183 199 / 3%);
+        pointer-events: none;
+    }
+
+    .password-control { @apply relative; }
+    .password-control .form-input { @apply pr-12; }
+    .password-toggle { @apply absolute top-1/2 right-1.5 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-sdaya-50 hover:text-sdaya-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sdaya-400; }
+
+    .reveal { animation: reveal-up 620ms cubic-bezier(.22, 1, .36, 1) both; }
+    .reveal-delay-1 { animation-delay: 90ms; }
+    .reveal-delay-2 { animation-delay: 180ms; }
+    .reveal-delay-3 { animation-delay: 270ms; }
+    .document-float { animation: document-float 7s ease-in-out infinite; }
+}
+
+@media (min-width: 1024px) {
+    .app-shell {
+        display: grid;
+        grid-template-columns: 18rem minmax(0, 1fr);
+        transition: grid-template-columns 220ms ease;
+    }
+
+    html.sidebar-collapsed .app-shell { grid-template-columns: 5.75rem minmax(0, 1fr); }
+    html.sidebar-collapsed .sidebar-label,
+    html.sidebar-collapsed .sidebar-brand-copy,
+    html.sidebar-collapsed .sidebar-user-copy,
+    html.sidebar-collapsed .sidebar-logo-full { display: none; }
+    html.sidebar-collapsed .sidebar-monogram { display: grid; }
+    html.sidebar-collapsed .nav-link { justify-content: center; padding-inline: .75rem; }
+    html.sidebar-collapsed .nav-link:hover { transform: none; }
+    html.sidebar-collapsed .nav-link-active::before { left: -.4rem; }
+    html.sidebar-collapsed .sidebar-user { justify-content: center; }
+    html.sidebar-collapsed .sidebar-logout { justify-content: center; padding-inline: .75rem; }
+    html.sidebar-collapsed .sidebar-collapse-icon { display: none; }
+    html:not(.sidebar-collapsed) .sidebar-expand-icon { display: none; }
+}
+
+@keyframes reveal-up {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes document-float {
+    0%, 100% { transform: translateY(0) rotate(.2deg); }
+    50% { transform: translateY(-8px) rotate(-.2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+.document-sheet-wrapper {
+    background-color: #f1f5f9;
+    padding: 1.5rem 1rem;
+    border-radius: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.ck.ck-editor {
+    width: 100% !important;
+    max-width: 820px !important;
+    margin: 0 auto;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border-radius: 0.75rem !important;
+    overflow: hidden;
+}
+
+.ck.ck-toolbar {
+    border-top-left-radius: 0.75rem !important;
+    border-top-right-radius: 0.75rem !important;
+    border-color: #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    padding: 0.5rem !important;
+}
+
+.ck.ck-editor__editable_inline {
+    min-height: 520px !important;
+    padding: 2.5rem 3rem !important;
+    background-color: #ffffff !important;
+    font-family: 'Montserrat', Arial, sans-serif !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+    color: #1e293b !important;
+    border-bottom-left-radius: 0.75rem !important;
+    border-bottom-right-radius: 0.75rem !important;
+    border-color: #cbd5e1 !important;
+}
+
+.ck-content p {
+    margin-bottom: 0.75rem;
+}
+
+.ck-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+}
+
+.ck-content table td, .ck-content table th {
+    border: 1px solid #cbd5e1;
+    padding: 0.5rem 0.75rem;
+}
+
+.ck-content table th {
+    background-color: #f1f5f9;
+    font-weight: 700;
+}
+
+.ck-content hr {
+    border: 0;
+    border-top: 1px solid #94a3b8;
+    margin: 1.25rem 0;
+}
+
+/* Widgets Institucionales SDAYA */
+.sdaya-meta {
+    margin-bottom: 1.5rem;
+}
+
+.sdaya-meta.sdaya-align-left { text-align: left; }
+.sdaya-meta.sdaya-align-center { text-align: center; }
+.sdaya-meta.sdaya-align-right { text-align: right; }
+
+.sdaya-meta-fecha {
+    font-size: 10.5pt;
+    color: #334155;
+    margin-bottom: 0.25rem;
+}
+
+.sdaya-meta-cite {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #293d61;
+}
+
+.sdaya-qr {
+    margin: 1.5rem 0;
+    text-align: center;
+}
+
+.sdaya-qr.sdaya-align-left { text-align: left; }
+.sdaya-qr.sdaya-align-center { text-align: center; }
+.sdaya-qr.sdaya-align-right { text-align: right; }
+
+.document-content .ql-font-montserrat, .ql-editor .ql-font-montserrat { font-family: 'Montserrat', Arial, sans-serif; }
+.document-content .ql-font-arial, .ql-editor .ql-font-arial { font-family: Arial, Helvetica, sans-serif; }
+.document-content .ql-font-times, .ql-editor .ql-font-times { font-family: 'Times New Roman', Times, serif; }
+.document-content .ql-font-courier, .ql-editor .ql-font-courier { font-family: 'Courier New', Courier, monospace; }
+.document-content .ql-font-gothic, .ql-editor .ql-font-gothic { font-family: 'Century Gothic', 'CenturyGothic', AppleGothic, sans-serif; }
+.document-content .ql-font-georgia, .ql-editor .ql-font-georgia { font-family: Georgia, 'Times New Roman', serif; }
+.document-content .ql-size-10, .ql-editor .ql-size-10 { font-size: 10pt; }
+.document-content .ql-size-11, .ql-editor .ql-size-11 { font-size: 11pt; }
+.document-content .ql-size-12, .ql-editor .ql-size-12 { font-size: 12pt; }
+.document-content .ql-size-14, .ql-editor .ql-size-14 { font-size: 14pt; }
+.document-content .ql-size-16, .ql-editor .ql-size-16 { font-size: 16pt; }
+.document-content .ql-size-18, .ql-editor .ql-size-18 { font-size: 18pt; }
+.document-content .ql-size-20, .ql-editor .ql-size-20 { font-size: 20pt; }
+.document-content .ql-size-24, .ql-editor .ql-size-24 { font-size: 24pt; }
