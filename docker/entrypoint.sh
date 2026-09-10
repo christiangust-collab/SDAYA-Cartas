@@ -11,10 +11,14 @@ mkdir -p \
     storage/logs \
     bootstrap/cache
 
-chown -R www-data:www-data storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache || true
+chmod -R 775 storage bootstrap/cache || true
 
-# Soporte dinámico para puerto en entornos cloud (Render, Heroku, etc.)
+# Asegurar un único MPM activo en Apache (soluciona AH00534 en Railway)
+rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf 2>/dev/null || true
+a2enmod mpm_prefork 2>/dev/null || true
+
+# Soporte dinámico para puerto en entornos cloud (Railway, Render, etc.)
 HTTP_PORT="${PORT:-80}"
 if [ "${HTTP_PORT}" != "80" ] && [ -f /etc/apache2/ports.conf ]; then
     sed -i "s/Listen 80/Listen ${HTTP_PORT}/g" /etc/apache2/ports.conf

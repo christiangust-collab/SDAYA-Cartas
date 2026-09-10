@@ -33,7 +33,8 @@ RUN apt-get update \
     && docker-php-ext-install -j"$(nproc)" bcmath exif gd intl mbstring opcache pdo_pgsql pgsql zip \
     && pecl install imagick \
     && docker-php-ext-enable imagick \
-    && a2enmod expires headers rewrite \
+    && a2dismod mpm_event mpm_worker 2>/dev/null || true \
+    && a2enmod mpm_prefork expires headers rewrite \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
