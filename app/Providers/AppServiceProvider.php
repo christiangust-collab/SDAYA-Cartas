@@ -31,11 +31,16 @@ final class AppServiceProvider extends ServiceProvider
         Gate::policy(Area::class, AreaPolicy::class);
         Gate::policy(Tipo::class, TipoPolicy::class);
         Gate::policy(Documento::class, DocumentoPolicy::class);
+        Gate::policy(\App\Models\Empresa::class, \App\Policies\EmpresaPolicy::class);
 
         Model::preventLazyLoading(! $this->app->isProduction());
 
         RateLimiter::for('verificacion', static function (Request $request): Limit {
             return Limit::perMinute(60)->by($request->ip());
+        });
+
+        \Illuminate\Support\Facades\View::composer('*', static function (\Illuminate\View\View $view): void {
+            $view->with('empresaActual', \App\Models\Empresa::actual());
         });
     }
 }

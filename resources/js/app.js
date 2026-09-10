@@ -185,7 +185,11 @@ function setupTabs() {
                 button.tabIndex = active ? 0 : -1;
                 if (active && focus) button.focus();
             });
-            panels.forEach((panel) => { panel.hidden = panel.dataset.tabPanel !== name; });
+            panels.forEach((panel) => {
+                const isCurrent = panel.dataset.tabPanel === name;
+                panel.hidden = !isCurrent;
+                panel.classList.toggle('hidden', !isCurrent);
+            });
             if (history.replaceState) history.replaceState(null, '', `#${name}`);
         };
 
@@ -283,35 +287,63 @@ function SDAYAUploadAdapterPlugin(editor) {
 }
 
 /**
- * Selector de alineación del encabezado (Lugar / Fecha / CITE).
- * Sincroniza los botones con el input hidden y con el widget en CKEditor si existe.
+ * Selector de alineación del encabezado y pie de firma.
+ * Sincroniza los botones con los inputs hidden, CKEditor y tarjeta de preview.
  */
 function setupAlineacionEncabezado(editor = null) {
-    const botones = selectAll('.align-btn');
-    if (!botones.length) return;
+    const grupos = selectAll('[data-align-group]');
 
-    const campo = select('#alineacion_encabezado');
-    if (!campo) return;
+    if (!grupos.length) {
+        // Soporte fallback para markup previo
+        const botones = selectAll('.align-btn');
+        const campo = select('#alineacion_encabezado');
+        if (!botones.length || !campo) return;
 
-    botones.forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const valor = btn.dataset.align;
-            if (!valor) return;
-
-            campo.value = valor;
-
-            botones.forEach((b) => {
-                b.setAttribute('aria-pressed', String(b.dataset.align === valor));
+        botones.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const valor = btn.dataset.align;
+                if (!valor) return;
+                campo.value = valor;
+                botones.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.align === valor)));
             });
+        });
+        return;
+    }
 
-            // Si hay un widget de encabezado en el editor, actualizar su alineación visual
-            if (editor && typeof editor.getData === 'function') {
-                const data = editor.getData();
-                if (data.includes('data-sdaya-meta')) {
-                    const actualizado = data.replace(/class="sdaya-meta sdaya-align-(?:left|center|right)"/g, `class="sdaya-meta sdaya-align-${valor}"`);
-                    editor.setData(actualizado);
+    grupos.forEach((grupo) => {
+        const nombreCampo = grupo.dataset.alignGroup;
+        const campo = select(`#${nombreCampo}`);
+        const botones = selectAll('.align-btn', grupo);
+        if (!campo || !botones.length) return;
+
+        botones.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const valor = btn.dataset.align;
+                if (!valor) return;
+
+                campo.value = valor;
+                botones.forEach((b) => {
+                    b.setAttribute('aria-pressed', String(b.dataset.align === valor));
+                });
+
+                // Si es el encabezado, actualizar widget en CKEditor
+                if (nombreCampo === 'alineacion_encabezado' && editor && typeof editor.getData === 'function') {
+                    const data = editor.getData();
+                    if (data.includes('data-sdaya-meta')) {
+                        const actualizado = data.replace(/class="sdaya-meta sdaya-align-(?:left|center|right)"/g, `class="sdaya-meta sdaya-align-${valor}"`);
+                        editor.setData(actualizado);
+                    }
                 }
-            }
+
+                // Si es el pie de firma, actualizar en vivo la tarjeta de vista previa
+                if (nombreCampo === 'alineacion_pie_firma') {
+                    const card = select('[data-firmante-card]');
+                    if (card) {
+                        card.classList.remove('text-left', 'text-center', 'text-right');
+                        card.classList.add(`text-${valor}`);
+                    }
+                }
+            });
         });
     });
 }
@@ -577,6 +609,68 @@ function setupCitePreview() {
     update();
 }
 
+function setupFirmantePreview() {
+    const selectFirmante = select('[data-firmante-select]');
+    if (!selectFirmante) return;
+
+    const nombreEl = select('[data-firmante-nombre-preview]');
+    const cargoEl = select('[data-firmante-cargo-preview]');
+    const empresaEl = select('[data-firmante-empresa-preview]');
+    const telefonoEl = select('[data-firmante-telefono-preview]');
+    const correoEl = select('[data-firmante-correo-preview]');
+    const rubricaWrapper = select('[data-firmante-rubrica-wrapper]');
+    const rubricaImg = select('[data-firmante-rubrica-img]');
+
+    const update = () => {
+        const option = selectFirmante.selectedOptions[0];
+        if (!option) return;
+
+        const nombre = option.dataset.nombre || option.textContent.trim();
+        const cargo = option.dataset.cargo || '';
+        const empresa = option.dataset.empresa || '';
+        const correo = option.dataset.correo || '';
+        const telefono = option.dataset.telefono || '';
+        const firma = option.dataset.firma || '';
+        const empresaId = option.dataset.empresaId || '';
+
+        const hiddenEmpresaId = document.getElementById('documento_empresa_id');
+        if (hiddenEmpresaId && empresaId) {
+            hiddenEmpresaId.value = empresaId;
+        }
+
+        if (nombreEl) nombreEl.textContent = nombre;
+        if (cargoEl) {
+            cargoEl.textContent = cargo ? cargo.toUpperCase() : '';
+            cargoEl.style.display = cargo ? 'block' : 'none';
+        }
+        if (empresaEl) {
+            empresaEl.textContent = empresa ? empresa.toUpperCase() : '';
+            empresaEl.style.display = empresa ? 'block' : 'none';
+        }
+        if (telefonoEl) {
+            telefonoEl.innerHTML = telefono ? `<span class="font-bold">móvil:</span> ${telefono}` : '';
+            telefonoEl.style.display = telefono ? 'block' : 'none';
+        }
+        if (correoEl) {
+            correoEl.innerHTML = correo ? `<span class="font-bold">email:</span> ${correo}` : '';
+            correoEl.style.display = correo ? 'block' : 'none';
+        }
+
+        if (rubricaWrapper && rubricaImg) {
+            if (firma) {
+                rubricaImg.src = firma;
+                rubricaWrapper.classList.remove('hidden');
+            } else {
+                rubricaImg.src = '';
+                rubricaWrapper.classList.add('hidden');
+            }
+        }
+    };
+
+    selectFirmante.addEventListener('change', update);
+    update();
+}
+
 setupMobileMenu();
 setupSidebarCollapse();
 setupPasswordVisibility();
@@ -586,6 +680,7 @@ setupValidationFeedback();
 setupTabs();
 setupAlineacionEncabezado();
 setupCitePreview();
+setupFirmantePreview();
 setupEditors().catch((error) => {
     console.error('[SDAYA Editor] Error inicializando CKEditor 5:', error);
 });

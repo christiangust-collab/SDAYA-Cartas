@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AjustesController;
 use App\Http\Controllers\AnularDocumentoController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\Auth\LoginController;
@@ -13,14 +14,18 @@ use App\Http\Controllers\CorrelativoPreviewController;
 use App\Http\Controllers\DescargarDocumentoController;
 use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\EmitirDocumentoController;
+use App\Http\Controllers\EmpresaController;
 use App\Http\Controllers\ImportarDocxController;
 use App\Http\Controllers\PdfPublicoController;
+use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\QrDocumentoController;
 use App\Http\Controllers\TipoController;
+use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\VerificacionController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'inicio')->name('inicio');
+Route::get('/identidad/archivos/{tipo}', [AjustesController::class, 'archivo'])->name('ajustes.archivo');
 
 Route::post('/verificar', BuscarVerificacionController::class)
     ->middleware('throttle:verificacion')
@@ -57,7 +62,12 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('throttle:120,1')
         ->name('api.correlativo-preview');
 
+    Route::get('/perfil', [PerfilController::class, 'edit'])->name('perfil.edit');
+    Route::put('/perfil', [PerfilController::class, 'update'])->name('perfil.update');
+
     Route::resource('documentos', DocumentoController::class)->except(['destroy']);
+    Route::get('/documentos/{documento}/vista-previa', [DocumentoController::class, 'preview'])
+        ->name('documentos.preview');
     Route::post('/documentos/{documento}/emitir', EmitirDocumentoController::class)
         ->name('documentos.emitir');
     Route::post('/documentos/{documento}/anular', AnularDocumentoController::class)
@@ -71,6 +81,16 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/documentos/importar-docx', ImportarDocxController::class)
         ->middleware('throttle:30,1')
         ->name('documentos.importar-docx');
+
+    Route::resource('empresas', EmpresaController::class)->except(['show', 'destroy']);
+    Route::patch('/empresas/{empresa}/estado', [EmpresaController::class, 'toggle'])->name('empresas.toggle');
+    Route::post('/empresas/asignar-firmante', [EmpresaController::class, 'asignarFirmante'])->name('empresas.asignar-firmante');
+
+    Route::resource('usuarios', UsuarioController::class)->except(['show', 'destroy']);
+    Route::patch('/usuarios/{usuario}/estado', [UsuarioController::class, 'toggle'])->name('usuarios.toggle');
+
+    Route::get('/ajustes', [AjustesController::class, 'index'])->name('ajustes.index');
+    Route::put('/ajustes', [AjustesController::class, 'update'])->name('ajustes.update');
 
     Route::prefix('catalogos')->name('catalogos.')->group(function (): void {
         Route::get('/', CatalogoController::class)->name('index');

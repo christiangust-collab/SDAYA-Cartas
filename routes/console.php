@@ -14,7 +14,7 @@ Artisan::command('sdaya:usuario {email?}', function (): int {
     $email = mb_strtolower(trim((string) ($this->argument('email') ?: $this->ask('Correo electrónico'))));
     $usuario = User::query()->firstOrNew(['email' => $email]);
     $nombre = trim((string) $this->ask('Nombre completo', $usuario->name ?: null));
-    $rolActual = $usuario->role instanceof RolUsuario ? $usuario->role->value : RolUsuario::LECTOR->value;
+    $rolActual = $usuario->role instanceof RolUsuario ? $usuario->role->value : RolUsuario::EDITOR->value;
     $rol = (string) $this->choice(
         'Rol',
         array_map(static fn (RolUsuario $rol): string => $rol->value, RolUsuario::cases()),
@@ -23,7 +23,7 @@ Artisan::command('sdaya:usuario {email?}', function (): int {
 
     $validator = Validator::make(
         ['email' => $email, 'name' => $nombre, 'role' => $rol],
-        ['email' => ['required', 'email'], 'name' => ['required', 'string', 'max:255'], 'role' => ['required', 'in:admin,editor,lector']],
+        ['email' => ['required', 'email'], 'name' => ['required', 'string', 'max:255'], 'role' => ['required', 'in:admin,editor']],
     );
 
     if ($validator->fails()) {

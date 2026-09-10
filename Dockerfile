@@ -27,6 +27,7 @@ RUN apt-get update \
         libpq-dev \
         libxml2-dev \
         libzip-dev \
+        poppler-utils \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" bcmath exif gd intl mbstring opcache pdo_pgsql pgsql zip \

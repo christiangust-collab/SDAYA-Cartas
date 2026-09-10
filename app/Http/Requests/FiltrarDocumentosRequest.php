@@ -24,6 +24,7 @@ final class FiltrarDocumentosRequest extends FormRequest
     {
         return [
             'buscar' => ['nullable', 'string', 'max:100'],
+            'empresa_id' => ['nullable', 'integer', 'exists:empresas,id'],
             'area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'tipo_id' => ['nullable', 'integer', 'exists:tipos,id'],
             'anio' => ['nullable', 'integer', 'between:2020,2100'],

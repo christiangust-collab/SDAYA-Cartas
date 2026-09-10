@@ -1,39 +1,76 @@
 <x-layouts.app>
-    <x-slot:title>{{ $documento->cite ?: 'Borrador #'.$documento->id }}</x-slot:title>
-    <x-slot:heading>{{ $documento->cite ?: 'Borrador #'.$documento->id }}</x-slot:heading>
+    <x-slot:title>{{ $documento->estaBorrador() ? 'Vista previa: Borrador #'.$documento->id : ($documento->cite ?: 'Documento #'.$documento->id) }}</x-slot:title>
+    <x-slot:heading>{{ $documento->estaBorrador() ? 'Vista previa del borrador' : ($documento->cite ?: 'Documento #'.$documento->id) }}</x-slot:heading>
     <x-slot:subheading>{{ $documento->area->nombre }} · {{ $documento->tipo->nombre }}</x-slot:subheading>
     <x-slot:headerActions>
-        <a href="{{ route('documentos.index') }}" class="btn-ghost hidden sm:inline-flex"><x-icon name="arrow-left" size="17" /> Volver</a>
+        <a href="{{ route('documentos.index') }}" class="btn-ghost hidden sm:inline-flex"><x-icon name="arrow-left" size="17" /> Volver al listado</a>
         @can('update', $documento)
-            <a href="{{ route('documentos.edit', $documento) }}" class="btn-secondary"><x-icon name="edit" size="17" /> Editar</a>
+            <a href="{{ route('documentos.edit', $documento) }}" class="btn-secondary"><x-icon name="edit" size="17" /> Volver a editar</a>
+        @endcan
+        @can('emitir', $documento)
+            @if ($documento->estaBorrador())
+                <form method="POST" action="{{ route('documentos.emitir', $documento) }}" class="inline-flex">
+                    @csrf
+                    <button type="submit" class="btn-primary" data-confirm="Al finalizar la carta se reservará el correlativo oficial y el documento quedará bloqueado. ¿Deseas emitirlo?"><x-icon name="send" size="17" /> Finalizar carta</button>
+                </form>
+            @endif
         @endcan
     </x-slot:headerActions>
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div class="space-y-6">
+            @if ($documento->estaBorrador())
+                <section class="flex flex-col items-start justify-between gap-4 rounded-2xl border border-amber-300 bg-amber-50/95 p-4 sm:p-5 text-amber-950 shadow-sm sm:flex-row sm:items-center" aria-label="Aviso de vista previa de borrador">
+                    <div class="flex items-start gap-3.5">
+                        <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-200/80 text-amber-900 ring-1 ring-amber-300"><x-icon name="eye" size="20" /></span>
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center rounded-md bg-amber-200 px-2 py-0.5 text-xs font-black tracking-wide text-amber-900 uppercase">Borrador / Vista Previa</span>
+                                <span class="text-xs font-bold text-amber-800">· Documento no finalizado</span>
+                            </div>
+                            <p class="mt-1 text-sm leading-6 text-amber-900">Esta es una <strong>vista previa de la carta</strong> antes de su finalización oficial. Puedes revisar que los datos y el formato sean correctos o volver a editar si necesitas hacer cambios.</p>
+                        </div>
+                    </div>
+                    <div class="flex w-full shrink-0 flex-wrap gap-2.5 sm:w-auto">
+                        @can('update', $documento)
+                            <a href="{{ route('documentos.edit', $documento) }}" class="btn-secondary w-full text-sm sm:w-auto"><x-icon name="edit" size="16" /> Volver a editar</a>
+                        @endcan
+                        @can('emitir', $documento)
+                            <form method="POST" action="{{ route('documentos.emitir', $documento) }}" class="w-full sm:w-auto">
+                                @csrf
+                                <button type="submit" class="btn-primary w-full text-sm sm:w-auto" data-confirm="Al finalizar la carta se reservará el correlativo oficial y el documento quedará bloqueado. ¿Deseas emitirlo?"><x-icon name="send" size="16" /> Finalizar carta</button>
+                            </form>
+                        @endcan
+                    </div>
+                </section>
+            @endif
+
             <article class="document-sheet" aria-labelledby="detalle-titulo">
                 <header class="p-5 sm:p-7">
                     <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-3">
                                 <x-estado-badge :estado="$documento->estado" />
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                                    <x-icon name="building" size="13" /> {{ $documento->datosEmpresa()['nombre'] }}
+                                </span>
                                 <span class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500"><x-icon name="calendar" size="14" /> {{ $documento->fecha_documento->format('d/m/Y') }}</span>
                             </div>
-                            <h1 id="detalle-titulo" class="mt-5 text-2xl leading-tight font-black tracking-[-0.025em] text-sdaya-950 sm:text-3xl">{{ $documento->asunto !== null && $documento->asunto !== '' ? $documento->asunto : ($documento->cite ?: 'Borrador #'.$documento->id) }}</h1>
+                            <h1 id="detalle-titulo" class="mt-5 text-2xl leading-tight font-black tracking-[-0.025em] text-slate-900 sm:text-3xl">{{ $documento->asunto !== null && $documento->asunto !== '' ? $documento->asunto : ($documento->cite ?: 'Borrador #'.$documento->id) }}</h1>
                             @if (filled($documento->destinatario))
-                                <p class="mt-3 flex items-start gap-2 text-sm leading-6 text-slate-600"><x-icon name="user" size="16" class="mt-1 text-sdaya-600" /> <span>Dirigido a <strong class="text-slate-900">{{ $documento->destinatario }}</strong></span></p>
+                                <p class="mt-3 flex items-start gap-2 text-sm leading-6 text-slate-600"><x-icon name="user" size="16" class="mt-1 text-slate-500" /> <span>Dirigido a <strong class="text-slate-900">{{ $documento->destinatario }}</strong></span></p>
                             @endif
                         </div>
 
-                        <div class="shrink-0 rounded-2xl border border-sdaya-200 bg-sdaya-50 px-4 py-3.5 sm:min-w-40 sm:text-right">
-                            <p class="detail-term text-sdaya-600">Clasificación</p>
-                            <p class="mt-1.5 font-mono text-base font-black text-sdaya-950">{{ $documento->area->codigo }} · {{ $documento->tipo->codigo }}</p>
+                        <div class="shrink-0 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 sm:min-w-40 sm:text-right">
+                            <p class="detail-term text-slate-600">Clasificación</p>
+                            <p class="mt-1.5 font-mono text-base font-black text-slate-900">{{ $documento->area->codigo }} · {{ $documento->tipo->codigo }}</p>
                         </div>
                     </div>
                 </header>
 
                 <div class="border-t border-slate-200 bg-slate-50/60 px-5 py-3 sm:px-7">
-                    <div class="flex items-center gap-2 text-[10px] font-black tracking-[0.14em] text-slate-500 uppercase"><x-icon name="file-text" size="14" class="text-sdaya-600" /> Contenido del documento</div>
+                    <div class="flex items-center gap-2 text-[10px] font-black tracking-[0.14em] text-slate-500 uppercase"><x-icon name="file-text" size="14" class="text-slate-400" /> Contenido del documento</div>
                 </div>
 
                 @php
@@ -48,13 +85,47 @@
                     <div class="{{ $alineacionEncabezado }} leading-relaxed text-slate-800">
                         <p>{{ $lugarDocumento }}, {{ $documento->fecha_documento->locale('es')->translatedFormat('d \d\e F \d\e Y') }}</p>
                         @if ($documento->cite)
-                            <p class="font-bold text-sdaya-800">CITE: {{ $documento->cite }}</p>
+                            <p class="font-bold text-slate-900">CITE: {{ $documento->cite }}</p>
+                        @else
+                            <p class="font-mono text-xs font-bold text-amber-800">CITE: <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">(Se asignará al finalizar la carta)</span></p>
                         @endif
                     </div>
                 </section>
 
                 <section class="min-h-72 bg-white p-5 sm:p-8" aria-label="Contenido de la carta">
                     <div class="document-content">{!! $documento->contenido !!}</div>
+
+                    @php
+                        $pieFirma = $documento->pieFirma();
+                        $firmaDataUri = $documento->firmaDataUri();
+                        $alineacionPieFirma = match($documento->alineacion_pie_firma ?? $documento->alineacion_encabezado ?? 'right') {
+                            'left'   => 'text-left',
+                            'center' => 'text-center',
+                            default  => 'text-right',
+                        };
+                    @endphp
+                    @if ($pieFirma && (!empty($pieFirma['nombre']) || !empty($pieFirma['cargo'])))
+                        <div class="mt-12 pt-6 border-t border-slate-200/70 {{ $alineacionPieFirma }}" data-pie-firma>
+                            @if ($firmaDataUri)
+                                <div class="-mb-3">
+                                    <img src="{{ $firmaDataUri }}" alt="Rúbrica de {{ $pieFirma['nombre'] }}" class="h-20 sm:h-24 max-w-64 object-contain inline-block">
+                                </div>
+                            @endif
+                            <p class="font-bold text-slate-900 text-sm sm:text-base leading-tight">{{ $pieFirma['nombre'] }}</p>
+                            @if (!empty($pieFirma['cargo']))
+                                <p class="font-bold text-slate-900 text-xs sm:text-sm uppercase tracking-tight leading-tight mt-1">{{ $pieFirma['cargo'] }}</p>
+                            @endif
+                            @if (!empty($pieFirma['empresa']))
+                                <p class="font-bold text-slate-900 text-xs tracking-tight uppercase leading-tight mt-1">{{ $pieFirma['empresa'] }}</p>
+                            @endif
+                            @if (!empty($pieFirma['telefono']))
+                                <p class="text-xs text-slate-900 leading-tight mt-1"><span class="font-bold">móvil:</span> {{ $pieFirma['telefono'] }}</p>
+                            @endif
+                            @if (!empty($pieFirma['correo']))
+                                <p class="text-xs text-slate-900 leading-tight mt-0.5"><span class="font-bold">email:</span> {{ $pieFirma['correo'] }}</p>
+                            @endif
+                        </div>
+                    @endif
                 </section>
             </article>
 
@@ -62,7 +133,7 @@
                 <div class="section-header">
                     <span class="section-number"><x-icon name="history" size="18" /></span>
                     <div>
-                        <h2 id="historial-titulo" class="text-lg font-black tracking-tight text-sdaya-950">Historial del documento</h2>
+                        <h2 id="historial-titulo" class="text-lg font-black tracking-tight text-slate-900">Historial del documento</h2>
                         <p class="mt-1 text-sm text-slate-500">Registro cronológico de las acciones realizadas.</p>
                     </div>
                 </div>
@@ -70,8 +141,8 @@
                 <ol class="mt-6 space-y-0">
                     @forelse ($documento->eventos as $evento)
                         <li class="relative grid grid-cols-[2rem_minmax(0,1fr)] gap-4 pb-6 last:pb-0">
-                            <span class="relative z-10 grid size-8 place-items-center rounded-xl bg-sdaya-50 text-sdaya-700 ring-1 ring-sdaya-200" aria-hidden="true"><x-icon name="check" size="15" /></span>
-                            @if (! $loop->last)<span class="absolute top-8 bottom-0 left-[0.98rem] w-px bg-sdaya-200" aria-hidden="true"></span>@endif
+                            <span class="relative z-10 grid size-8 place-items-center rounded-xl bg-slate-100 text-slate-700 ring-1 ring-slate-200" aria-hidden="true"><x-icon name="check" size="15" /></span>
+                            @if (! $loop->last)<span class="absolute top-8 bottom-0 left-[0.98rem] w-px bg-slate-200" aria-hidden="true"></span>@endif
                             <div class="pt-1">
                                 <p class="text-sm font-extrabold text-slate-900">{{ $evento->evento->etiqueta() }}</p>
                                 <p class="mt-1 text-xs text-slate-500">{{ $evento->usuario?->name ?? 'Usuario no disponible' }} · {{ $evento->created_at->format('d/m/Y H:i') }}</p>
@@ -88,48 +159,58 @@
         </div>
 
         <aside class="space-y-5 xl:sticky xl:top-24 xl:self-start">
-            @if ($documento->estado->estaPublicado())
-                <section class="overflow-hidden rounded-2xl border border-sdaya-800 bg-sdaya-950 text-white shadow-xl shadow-sdaya-950/10" aria-labelledby="verificacion-titulo">
-                    <div class="p-5 text-center">
-                        <span class="mx-auto grid size-10 place-items-center rounded-xl bg-sdaya-400/15 text-sdaya-300 ring-1 ring-sdaya-400/20"><x-icon name="shield-check" size="20" /></span>
-                        <h2 id="verificacion-titulo" class="mt-4 font-black">Verificación pública</h2>
-                        <p class="mt-1 text-xs leading-5 text-sdaya-200">Escanea el QR para comprobar este documento.</p>
-                        <div class="mx-auto mt-5 w-fit rounded-2xl bg-white p-2.5 shadow-lg">
-                            <img src="{{ route('documentos.qr', $documento) }}" alt="Código QR para verificar {{ $documento->cite }}" class="size-40">
-                        </div>
-                        <p class="mt-4 break-all font-mono text-[9px] leading-4 text-sdaya-300">{{ $documento->hash_verificacion }}</p>
+            @if ($documento->estaBorrador())
+                <section class="card overflow-hidden border-amber-300" aria-labelledby="acciones-borrador-titulo">
+                    <div class="border-b border-amber-200 bg-amber-50 p-5">
+                        <span class="grid size-10 place-items-center rounded-xl bg-white text-amber-800 shadow-sm ring-1 ring-amber-300"><x-icon name="eye" size="19" /></span>
+                        <h2 id="acciones-borrador-titulo" class="mt-4 font-black text-slate-900">Acciones del borrador</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">Revisa la carta antes de finalizar o realiza ajustes si es necesario.</p>
                     </div>
-                    <a href="{{ route('verificar.show', $documento->hash_verificacion) }}" class="flex min-h-12 items-center justify-center gap-2 border-t border-white/10 bg-white/5 px-4 text-sm font-extrabold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-sdaya-400" target="_blank" rel="noopener">Abrir verificación <x-icon name="arrow-right" size="17" /></a>
+                    <div class="space-y-3 p-5">
+                        @can('update', $documento)
+                            <a href="{{ route('documentos.edit', $documento) }}" class="btn-secondary w-full"><x-icon name="edit" size="18" /> Volver a editar</a>
+                        @endcan
+                        @can('emitir', $documento)
+                            <form method="POST" action="{{ route('documentos.emitir', $documento) }}">
+                                @csrf
+                                <button type="submit" class="btn-primary w-full" data-confirm="Se asignará el correlativo definitivo y el documento quedará bloqueado. ¿Deseas finalizar la carta?"><x-icon name="send" size="18" /> Finalizar carta</button>
+                            </form>
+                        @endcan
+                        <a href="{{ route('documentos.index') }}" class="btn-ghost w-full"><x-icon name="arrow-left" size="17" /> Volver al listado</a>
+                    </div>
+                    <div class="border-t border-slate-100 bg-slate-50/80 p-4">
+                        <p class="flex items-start gap-2 text-xs leading-5 text-slate-500"><x-icon name="info" size="15" class="mt-0.5 shrink-0 text-slate-400" /> Al pulsar "Finalizar carta" se asignará el CITE correlativo y se generarán los archivos oficiales Word, PDF y QR.</p>
+                    </div>
+                </section>
+            @endif
+
+            @if ($documento->estado->estaPublicado())
+                <section class="card p-5 text-center" aria-labelledby="verificacion-titulo">
+                    <span class="mx-auto grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700 ring-1 ring-slate-200"><x-icon name="shield-check" size="20" /></span>
+                    <h2 id="verificacion-titulo" class="mt-4 font-black text-slate-900">Verificación pública</h2>
+                    <p class="mt-1 text-xs leading-5 text-slate-500">Escanea el QR para comprobar este documento.</p>
+                    <div class="mx-auto mt-5 w-fit rounded-2xl border border-slate-200 bg-slate-50 p-2.5 shadow-sm">
+                        <img src="{{ route('documentos.qr', $documento) }}" alt="Código QR para verificar {{ $documento->cite }}" class="size-40">
+                    </div>
+                    <p class="mt-4 break-all font-mono text-[9px] leading-4 text-slate-400">{{ $documento->hash_verificacion }}</p>
+                    <a href="{{ route('verificar.show', $documento->hash_verificacion) }}" class="btn-secondary mt-5 w-full" target="_blank" rel="noopener">Abrir verificación <x-icon name="arrow-right" size="17" /></a>
                 </section>
 
                 <section class="card p-5" aria-labelledby="archivos-titulo">
                     <div class="flex items-center gap-3">
-                        <span class="grid size-9 place-items-center rounded-xl bg-sdaya-50 text-sdaya-700"><x-icon name="download" size="18" /></span>
-                        <div><h2 id="archivos-titulo" class="font-black text-sdaya-950">Archivos oficiales</h2><p class="mt-0.5 text-xs text-slate-500">Versiones generadas al emitir.</p></div>
+                        <span class="grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-700"><x-icon name="download" size="18" /></span>
+                        <div><h2 id="archivos-titulo" class="font-black text-slate-900">Archivos oficiales</h2><p class="mt-0.5 text-xs text-slate-500">Versiones generadas al emitir.</p></div>
                     </div>
-                    <div class="mt-5 space-y-3">
-                        <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}" class="btn-primary w-full"><x-icon name="file-text" size="18" /> Descargar PDF</a>
-                        <a href="{{ route('documentos.descargar', [$documento, 'docx']) }}" class="btn-secondary w-full"><x-icon name="download" size="18" /> Descargar Word</a>
+                    <div class="mt-5 space-y-2.5">
+                        <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}" class="btn-primary w-full"><x-icon name="download" size="18" /> Descargar PDF</a>
+                        <a href="{{ route('verificar.pdf', $documento->hash_verificacion) }}" target="_blank" rel="noopener" class="btn-secondary w-full"><x-icon name="eye" size="18" /> Ver PDF en navegador</a>
+                        <a href="{{ route('documentos.descargar', [$documento, 'docx']) }}" class="btn-ghost w-full"><x-icon name="file-text" size="18" /> Descargar Word (.docx)</a>
                     </div>
                     @if ($documento->emitido_at)
                         <p class="mt-5 border-t border-slate-200 pt-4 text-xs leading-5 text-slate-500">Emitido el {{ $documento->emitido_at->format('d/m/Y H:i') }} por <strong class="text-slate-700">{{ $documento->emisor?->name ?? 'usuario no disponible' }}</strong>.</p>
                     @endif
                 </section>
             @endif
-
-            @can('emitir', $documento)
-                <section class="card overflow-hidden border-sdaya-200" aria-labelledby="emitir-titulo">
-                    <div class="border-b border-sdaya-100 bg-sdaya-50 p-5">
-                        <span class="grid size-10 place-items-center rounded-xl bg-white text-sdaya-700 shadow-sm ring-1 ring-sdaya-200"><x-icon name="send" size="19" /></span>
-                        <h2 id="emitir-titulo" class="mt-4 font-black text-sdaya-950">Documento listo para emitir</h2>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">Se asignará el CITE definitivo y la edición quedará bloqueada.</p>
-                    </div>
-                    <form method="POST" action="{{ route('documentos.emitir', $documento) }}" class="p-5">
-                        @csrf
-                        <button type="submit" class="btn-primary w-full" data-confirm="Se asignará el correlativo definitivo y el documento quedará bloqueado. ¿Deseas emitirlo?"><x-icon name="send" size="18" /> Emitir documento</button>
-                    </form>
-                </section>
-            @endcan
 
             @can('anular', $documento)
                 <details class="card overflow-hidden" @if($errors->has('motivo')) open @endif>

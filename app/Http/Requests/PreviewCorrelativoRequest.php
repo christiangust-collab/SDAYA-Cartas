@@ -20,6 +20,7 @@ final class PreviewCorrelativoRequest extends FormRequest
             'area' => ['required', 'integer', Rule::exists('areas', 'id')->where('activo', true)],
             'tipo' => ['required', 'integer', Rule::exists('tipos', 'id')->where('activo', true)],
             'anio' => ['required', 'integer', 'between:2020,2100'],
+            'empresa_id' => ['nullable', 'integer'],
         ];
     }
 }

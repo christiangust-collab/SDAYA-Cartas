@@ -9,7 +9,9 @@ use App\Http\Requests\FiltrarDocumentosRequest;
 use App\Http\Requests\GuardarDocumentoRequest;
 use App\Models\Area;
 use App\Models\Documento;
+use App\Models\Empresa;
 use App\Models\Tipo;
+use App\Models\User;
 use App\Services\EmitirDocumentoService;
 use App\Services\GuardarDocumentoService;
 use Illuminate\Http\RedirectResponse;
@@ -22,25 +24,38 @@ final class DocumentoController extends Controller
     public function index(FiltrarDocumentosRequest $request): View
     {
         $this->authorize('viewAny', Documento::class);
+        $usuario = $request->user();
         $filtros = $request->validated();
 
+        $queryBase = Documento::query();
+
+        if ($usuario && ! $usuario->esAdministrador()) {
+            $queryBase->where(function ($q) use ($usuario) {
+                $q->where('estado', '!=', EstadoDocumento::BORRADOR)
+                  ->orWhere('emitido_por', $usuario->id);
+            });
+        }
+
+        $documentos = (clone $queryBase)
+            ->conRelaciones()
+            ->filtrar($filtros)
+            ->latest('updated_at')
+            ->paginate(15)
+            ->withQueryString();
+
         return view('documentos.index', [
-            'documentos' => Documento::query()
-                ->conRelaciones()
-                ->filtrar($filtros)
-                ->latest('updated_at')
-                ->paginate(15)
-                ->withQueryString(),
+            'documentos' => $documentos,
             'areas' => Area::query()->orderBy('codigo')->get(),
             'tipos' => Tipo::query()->orderBy('codigo')->get(),
+            'empresas' => Empresa::query()->activas()->orderBy('nombre')->get(),
             'anios' => Documento::query()->select('anio')->distinct()->orderByDesc('anio')->pluck('anio'),
             'estados' => EstadoDocumento::cases(),
             'filtros' => $filtros,
             'resumen' => [
-                'total' => Documento::query()->count(),
-                'borradores' => Documento::query()->where('estado', EstadoDocumento::BORRADOR)->count(),
-                'emitidos' => Documento::query()->where('estado', EstadoDocumento::EMITIDO)->count(),
-                'anulados' => Documento::query()->where('estado', EstadoDocumento::ANULADO)->count(),
+                'total' => (clone $queryBase)->count(),
+                'borradores' => (clone $queryBase)->where('estado', EstadoDocumento::BORRADOR)->count(),
+                'emitidos' => (clone $queryBase)->where('estado', EstadoDocumento::EMITIDO)->count(),
+                'anulados' => (clone $queryBase)->where('estado', EstadoDocumento::ANULADO)->count(),
             ],
         ]);
     }
@@ -49,7 +64,7 @@ final class DocumentoController extends Controller
     {
         $this->authorize('create', Documento::class);
 
-        return view('documentos.create', $this->catalogosActivos());
+        return view('documentos.create', $this->catalogosActivos(request()->user()));
     }
 
     public function store(
@@ -68,7 +83,7 @@ final class DocumentoController extends Controller
         }
 
         return redirect()->route('documentos.show', $documento)
-            ->with('success', 'Borrador guardado correctamente.');
+            ->with('success', 'Borrador guardado correctamente. Revisa la vista previa antes de finalizar la carta.');
     }
 
     public function show(Documento $documento): View
@@ -76,7 +91,17 @@ final class DocumentoController extends Controller
         $this->authorize('view', $documento);
 
         return view('documentos.show', [
-            'documento' => $documento->load(['area', 'tipo', 'emisor', 'eventos.usuario']),
+            'documento' => $documento->load(['area', 'tipo', 'emisor', 'firmante', 'empresa', 'eventos.usuario']),
+        ]);
+    }
+
+    public function preview(Documento $documento): View
+    {
+        $this->authorize('view', $documento);
+
+        return view('documentos.show', [
+            'documento' => $documento->load(['area', 'tipo', 'emisor', 'firmante', 'empresa', 'eventos.usuario']),
+            'esVistaPrevia' => true,
         ]);
     }
 
@@ -85,8 +110,8 @@ final class DocumentoController extends Controller
         $this->authorize('update', $documento);
 
         return view('documentos.edit', [
-            ...$this->catalogosActivos(),
-            'documento' => $documento->load(['area', 'tipo']),
+            ...$this->catalogosActivos(request()->user()),
+            'documento' => $documento->load(['area', 'tipo', 'firmante', 'empresa']),
         ]);
     }
 
@@ -107,15 +132,30 @@ final class DocumentoController extends Controller
         }
 
         return redirect()->route('documentos.show', $documento)
-            ->with('success', 'Borrador actualizado correctamente.');
+            ->with('success', 'Borrador actualizado correctamente. Revisa la vista previa antes de finalizar la carta.');
     }
 
-    /** @return array{areas: mixed, tipos: mixed} */
-    private function catalogosActivos(): array
+    /** @return array{areas: mixed, tipos: mixed, firmantes: mixed, empresas: mixed} */
+    private function catalogosActivos(?User $usuario = null): array
     {
+        $usuario = $usuario ?? auth()->user();
+        $firmantesQuery = User::query()
+            ->with('empresaInstitucion')
+            ->whereIn('role', [\App\Enums\RolUsuario::ADMIN, \App\Enums\RolUsuario::EDITOR])
+            ->orderBy('name');
+
+        if ($usuario && ! $usuario->esAdministrador() && $usuario->empresa_id) {
+            $firmantesQuery->where(function ($q) use ($usuario) {
+                $q->where('empresa_id', $usuario->empresa_id)
+                  ->orWhere('id', $usuario->id);
+            });
+        }
+
         return [
             'areas' => Area::query()->activas()->orderBy('codigo')->get(),
             'tipos' => Tipo::query()->activos()->orderBy('codigo')->get(),
+            'firmantes' => $firmantesQuery->get(),
+            'empresas' => Empresa::query()->activas()->orderBy('nombre')->get(),
         ];
     }
 

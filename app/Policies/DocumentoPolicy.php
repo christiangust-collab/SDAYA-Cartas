@@ -16,6 +16,10 @@ final class DocumentoPolicy
 
     public function view(User $user, Documento $documento): bool
     {
+        if ($documento->estaBorrador() && $documento->emitido_por !== null) {
+            return $user->esAdministrador() || $documento->emitido_por === $user->id;
+        }
+
         return true;
     }
 
@@ -26,12 +30,28 @@ final class DocumentoPolicy
 
     public function update(User $user, Documento $documento): bool
     {
-        return $user->puedeEditarDocumentos() && $documento->estaBorrador();
+        if (! $documento->estaBorrador()) {
+            return false;
+        }
+
+        if ($documento->emitido_por !== null) {
+            return $user->esAdministrador() || $documento->emitido_por === $user->id;
+        }
+
+        return $user->puedeEditarDocumentos();
     }
 
     public function emitir(User $user, Documento $documento): bool
     {
-        return $user->puedeEditarDocumentos() && $documento->estaBorrador();
+        if (! $documento->estaBorrador()) {
+            return false;
+        }
+
+        if ($documento->emitido_por !== null) {
+            return $user->esAdministrador() || $documento->emitido_por === $user->id;
+        }
+
+        return $user->puedeEditarDocumentos();
     }
 
     public function anular(User $user, Documento $documento): bool

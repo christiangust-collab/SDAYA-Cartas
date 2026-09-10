@@ -4,9 +4,38 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="description" content="Resultado de verificación documental de SDAYA.">
-    <title>Verificación de documento | SDAYA Cartas</title>
+    <meta name="description" content="Resultado de verificación documental institucional.">
+    <title>Verificación de documento | {{ $empresaActual->nombre_aplicacion ?? config('app.name', 'Gestión de Cartas') }}</title>
+    @if ($empresaActual->faviconDataUri())
+        <link rel="icon" href="{{ $empresaActual->faviconDataUri() }}">
+    @endif
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @php
+        $colorPri = $empresaActual->color_principal ?: '#172944';
+        $colorSec = $empresaActual->color_secundario ?: '#4766a9';
+
+        $hexSec = ltrim($colorSec, '#');
+        if (strlen($hexSec) === 3) {
+            $hexSec = $hexSec[0].$hexSec[0].$hexSec[1].$hexSec[1].$hexSec[2].$hexSec[2];
+        }
+        $r = hexdec(substr($hexSec, 0, 2) ?: '47');
+        $g = hexdec(substr($hexSec, 2, 2) ?: '66');
+        $b = hexdec(substr($hexSec, 4, 2) ?: 'a9');
+        $yiq = (($r * 299) + ($g * 587) + ($b * 114)) / 1000;
+        $colorTextBtn = ($yiq >= 160) ? '#0f172a' : '#ffffff';
+    @endphp
+    <style>
+        :root {
+            --brand-primary: {{ $colorPri }};
+            --brand-secondary: {{ $colorSec }};
+            --brand-btn-text: {{ $colorTextBtn }};
+        }
+        .btn-primary {
+            background-color: var(--brand-secondary) !important;
+            border-color: var(--brand-secondary) !important;
+            color: var(--brand-btn-text) !important;
+        }
+    </style>
 </head>
 <body class="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
     <a href="#contenido" class="skip-link">Saltar al contenido principal</a>
@@ -26,8 +55,8 @@
                     <div class="p-6 text-center sm:p-12">
                         <span class="mx-auto grid size-18 place-items-center rounded-full bg-red-50 text-red-700 ring-8 ring-red-50/60"><x-icon name="alert-circle" size="34" /></span>
                         <p class="eyebrow mt-7 text-red-700">Código no válido</p>
-                        <h1 class="mt-3 text-3xl font-black tracking-[-0.03em] text-sdaya-950 sm:text-4xl">Documento no encontrado</h1>
-                        <p class="mx-auto mt-4 max-w-xl leading-7 text-slate-600">El código ingresado no corresponde a un documento emitido por SDAYA. Comprueba que hayas copiado los 64 caracteres completos.</p>
+                        <h1 class="mt-3 text-3xl font-black tracking-[-0.03em] text-slate-950 sm:text-4xl">Documento no encontrado</h1>
+                        <p class="mx-auto mt-4 max-w-xl leading-7 text-slate-600">El código ingresado no corresponde a un documento emitido por {{ $empresaActual->nombre }}. Comprueba que hayas copiado los 64 caracteres completos.</p>
                         <a href="{{ route('inicio') }}#verificar" class="btn-primary mt-8"><x-icon name="search" size="18" /> Intentar otra vez</a>
                     </div>
                 </section>
@@ -35,6 +64,8 @@
                 @php
                     $esValido = $documento->estaEmitido() && $contenidoIntegro && $pdfIntegro;
                     $esAnulado = $documento->estaAnulado();
+                    $datosEmp = $documento->datosEmpresa();
+                    $nombreInstitucion = $datosEmp['nombre'] ?? $empresaActual->nombre;
                 @endphp
 
                 <article class="card-elevated overflow-hidden">
@@ -46,34 +77,37 @@
                                 <x-icon :name="$esValido ? 'check-circle' : 'alert-circle'" size="34" />
                             </span>
                             <div>
-                                <p class="eyebrow {{ $esValido ? 'text-emerald-100' : 'text-red-100' }}">Verificación oficial SDAYA</p>
+                                <p class="eyebrow {{ $esValido ? 'text-emerald-100' : 'text-red-100' }}">Verificación oficial {{ $nombreInstitucion }}</p>
                                 <h1 class="mt-2 text-2xl font-black tracking-tight sm:text-3xl">{{ $esValido ? 'Documento auténtico' : ($esAnulado ? 'Documento anulado' : 'Integridad no confirmada') }}</h1>
                                 <p class="mt-3 max-w-2xl text-sm leading-6 {{ $esValido ? 'text-emerald-50' : 'text-red-50' }}">
-                                    {{ $esValido ? 'El registro se encuentra emitido y sus datos coinciden con el archivo PDF oficial.' : ($esAnulado ? 'Este documento fue emitido, pero posteriormente quedó anulado por SDAYA.' : 'El registro existe, pero una comprobación de integridad no coincide. Contacta a SDAYA.') }}
+                                    {{ $esValido ? 'El registro se encuentra emitido y sus datos coinciden con el archivo PDF oficial.' : ($esAnulado ? 'Este documento fue emitido, pero posteriormente quedó anulado por ' . $nombreInstitucion . '.' : 'El registro existe, pero una comprobación de integridad no coincide. Contacta a ' . $nombreInstitucion . '.') }}
                                 </p>
                             </div>
                         </div>
                     </header>
 
                     <div class="p-5 sm:p-8">
-                        <section class="rounded-2xl border border-sdaya-200 bg-sdaya-50/70 p-5 sm:p-6" aria-labelledby="folio-titulo">
-                            <p id="folio-titulo" class="detail-term text-sdaya-600">Folio de verificación</p>
+                        <section class="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6" aria-labelledby="folio-titulo">
+                            <p id="folio-titulo" class="detail-term text-slate-600">Folio de verificación</p>
                             <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <p class="break-all font-mono text-xl font-black tracking-tight text-sdaya-950 sm:text-2xl">{{ $documento->cite }}</p>
+                                <p class="break-all font-mono text-xl font-black tracking-tight text-slate-900 sm:text-2xl">{{ $documento->cite }}</p>
                                 <x-estado-badge :estado="$documento->estado" />
                             </div>
                         </section>
 
                         <section class="mt-7" aria-labelledby="datos-titulo">
                             <div class="flex items-center gap-3">
-                                <span class="grid size-9 place-items-center rounded-xl bg-sdaya-50 text-sdaya-700"><x-icon name="file-text" size="18" /></span>
-                                <h2 id="datos-titulo" class="font-black text-sdaya-950">Datos públicos del documento</h2>
+                                <span class="grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-700"><x-icon name="file-text" size="18" /></span>
+                                <h2 id="datos-titulo" class="font-black text-slate-900">Información oficial del documento</h2>
                             </div>
                             <dl class="mt-5 grid gap-x-8 gap-y-6 rounded-2xl border border-slate-200 p-5 sm:grid-cols-2 sm:p-6">
+                                <div><dt class="detail-term">Empresa Emisora</dt><dd class="detail-value flex items-center gap-2 font-black text-slate-900"><x-icon name="building" size="16" class="text-slate-400" /> {{ $nombreInstitucion }}</dd></div>
+                                @if ($documento->firmante)<div><dt class="detail-term">Firmante</dt><dd class="detail-value">{{ $documento->firmante->name }} @if($documento->firmante->cargo) <span class="text-xs text-slate-500 font-normal">({{ $documento->firmante->cargo }})</span> @endif</dd></div>@endif
                                 <div><dt class="detail-term">Fecha del documento</dt><dd class="detail-value">{{ $documento->fecha_documento->format('d/m/Y') }}</dd></div>
                                 @if ($documento->emitido_at)<div><dt class="detail-term">Fecha de emisión</dt><dd class="detail-value">{{ $documento->emitido_at->format('d/m/Y H:i') }}</dd></div>@endif
                                 <div><dt class="detail-term">Área</dt><dd class="detail-value">{{ $documento->area->codigo }} — {{ $documento->area->nombre }}</dd></div>
                                 <div><dt class="detail-term">Tipo</dt><dd class="detail-value">{{ $documento->tipo->codigo }} — {{ $documento->tipo->nombre }}</dd></div>
+                                @if (filled($documento->destinatario))<div class="sm:col-span-2"><dt class="detail-term">Destinatario</dt><dd class="detail-value">{{ $documento->destinatario }}</dd></div>@endif
                                 @if (filled($documento->asunto))<div class="sm:col-span-2"><dt class="detail-term">Asunto</dt><dd class="detail-value">{{ $documento->asunto }}</dd></div>@endif
                             </dl>
                         </section>
@@ -109,8 +143,8 @@
                 </article>
 
                 <div class="mx-auto mt-5 flex max-w-2xl items-start justify-center gap-2 text-center text-xs leading-5 text-slate-500">
-                    <x-icon name="lock" size="14" class="mt-0.5 shrink-0 text-sdaya-600" />
-                    <p>Por privacidad, esta consulta confirma metadatos e integridad sin publicar el destinatario ni el contenido de la carta.</p>
+                    <x-icon name="shield-check" size="15" class="mt-0.5 shrink-0 text-emerald-600" />
+                    <p>Esta consulta oficial confirma la autenticidad, trazabilidad y vigencia del documento emitido mediante respaldo criptográfico.</p>
                 </div>
             @endif
         </div>

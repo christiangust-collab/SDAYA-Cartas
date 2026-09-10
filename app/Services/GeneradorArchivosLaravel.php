@@ -98,9 +98,10 @@ final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocume
 
             $pdf = Pdf::loadView('documentos.pdf', [
                 'documento' => $documento,
+                'datosEmpresa' => $documento->datosEmpresa(),
                 'contenidoDocumento' => $contenidoNormalizado,
                 'lugarDocumento' => $this->lugar($documento),
-                'membreteDataUri' => $this->imagenDataUri((string) config('sdaya.marca.membrete')),
+                'membreteDataUri' => $this->resolverMembreteDataUri($documento),
                 'qrDataUri' => $qrDataUri,
                 'urlVerificacion' => $urlVerificacion,
                 'alineacionEncabezado' => $this->alineacionCss($documento),
@@ -140,6 +141,34 @@ final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocume
         }
     }
 
+    private function resolverMembreteRuta(Documento $documento): ?string
+    {
+        $datosEmpresa = $documento->datosEmpresa();
+        $logo = $datosEmpresa['logo_documentos'] ?? null;
+
+        if (filled($logo)) {
+            $disco = Storage::disk(config('sdaya.documentos.disk', 'local'));
+            if ($disco->exists((string) $logo)) {
+                $rutaAbs = $disco->path((string) $logo);
+                if (is_file($rutaAbs)) {
+                    return $rutaAbs;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function resolverMembreteDataUri(Documento $documento): ?string
+    {
+        $ruta = $this->resolverMembreteRuta($documento);
+        if (! $ruta) {
+            return null;
+        }
+
+        return $this->imagenDataUri($ruta);
+    }
+
     private function generarDocx(
         Documento $documento,
         string $destino,
@@ -165,14 +194,17 @@ final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocume
             'footerHeight' => 0,
         ]);
 
-        $encabezado = $seccion->addHeader();
-        $encabezado->addWatermark((string) config('sdaya.marca.membrete'), [
-            'width' => 612,
-            'height' => 792,
-            'marginLeft' => -0.05,
-            'marginTop' => -0.05,
-            'wrappingStyle' => 'behind',
-        ]);
+        $rutaMembrete = $this->resolverMembreteRuta($documento);
+        if ($rutaMembrete && is_file($rutaMembrete)) {
+            $encabezado = $seccion->addHeader();
+            $encabezado->addWatermark($rutaMembrete, [
+                'width' => 612,
+                'height' => 792,
+                'marginLeft' => -0.05,
+                'marginTop' => -0.05,
+                'wrappingStyle' => 'behind',
+            ]);
+        }
 
         $alineacionWord = $this->alineacionWord($documento);
 
@@ -186,6 +218,48 @@ final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocume
 
         foreach ($flotantes as $flotante) {
             $this->agregarImagenFlotante($seccion, $flotante);
+        }
+
+        $pieFirma = $documento->pieFirma();
+        if ($pieFirma && (! empty($pieFirma['nombre']) || ! empty($pieFirma['cargo']))) {
+            $alineacionPieWord = match ($documento->alineacion_pie_firma ?? $documento->alineacion_encabezado ?? 'right') {
+                'left' => 'left',
+                'center' => 'center',
+                default => 'right',
+            };
+            $seccion->addTextBreak(2);
+
+            if (! empty($pieFirma['firma_digital'])) {
+                $disco = Storage::disk(config('sdaya.documentos.disk', 'local'));
+                if ($disco->exists((string) $pieFirma['firma_digital'])) {
+                    $rutaAbsolutaFirma = $disco->path((string) $pieFirma['firma_digital']);
+                    if (is_file($rutaAbsolutaFirma)) {
+                        $seccion->addImage($rutaAbsolutaFirma, [
+                            'height' => 50,
+                            'alignment' => $alineacionPieWord,
+                        ]);
+                    }
+                }
+            }
+
+            $estiloParrafo = ['alignment' => $alineacionPieWord, 'spaceAfter' => 20];
+            $seccion->addText($pieFirma['nombre'], ['bold' => true, 'size' => 11, 'color' => '0F172A'], $estiloParrafo);
+            if (! empty($pieFirma['cargo'])) {
+                $seccion->addText(mb_strtoupper((string) $pieFirma['cargo'], 'UTF-8'), ['bold' => true, 'size' => 9.5, 'color' => '0F172A'], $estiloParrafo);
+            }
+            if (! empty($pieFirma['empresa'])) {
+                $seccion->addText(mb_strtoupper((string) $pieFirma['empresa'], 'UTF-8'), ['bold' => true, 'size' => 8.5, 'color' => '0F172A'], $estiloParrafo);
+            }
+            if (! empty($pieFirma['telefono'])) {
+                $textoRun = $seccion->addTextRun($estiloParrafo);
+                $textoRun->addText('móvil: ', ['bold' => true, 'size' => 9, 'color' => '0F172A']);
+                $textoRun->addText((string) $pieFirma['telefono'], ['size' => 9, 'color' => '0F172A']);
+            }
+            if (! empty($pieFirma['correo'])) {
+                $textoRun = $seccion->addTextRun($estiloParrafo);
+                $textoRun->addText('email: ', ['bold' => true, 'size' => 9, 'color' => '0F172A']);
+                $textoRun->addText((string) $pieFirma['correo'], ['size' => 9, 'color' => '0F172A']);
+            }
         }
 
         if (! str_contains($contenidoHtml, 'data-sdaya-qr')) {
@@ -369,15 +443,21 @@ final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocume
         return storage_path('fonts');
     }
 
-    private function imagenDataUri(string $ruta): string
+    private function imagenDataUri(?string $ruta): ?string
     {
+        if (! $ruta || ! is_file($ruta)) {
+            return null;
+        }
+
         $contenido = file_get_contents($ruta);
 
         if ($contenido === false) {
-            throw new RuntimeException('No se encontró el membrete institucional.');
+            return null;
         }
 
-        return 'data:image/png;base64,'.base64_encode($contenido);
+        $mime = mime_content_type($ruta) ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode($contenido);
     }
 
     private function disco(): FilesystemAdapter

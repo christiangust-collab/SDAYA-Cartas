@@ -12,7 +12,6 @@ class EnumsTest extends TestCase
     {
         $this->assertSame('admin', RolUsuario::ADMIN->value);
         $this->assertSame('editor', RolUsuario::EDITOR->value);
-        $this->assertSame('lector', RolUsuario::LECTOR->value);
         $this->assertSame('borrador', EstadoDocumento::BORRADOR->value);
         $this->assertSame('emitido', EstadoDocumento::EMITIDO->value);
         $this->assertSame('anulado', EstadoDocumento::ANULADO->value);

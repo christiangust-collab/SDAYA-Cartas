@@ -10,79 +10,100 @@
 
     <section aria-labelledby="resumen-titulo">
         <h1 id="resumen-titulo" class="sr-only">Resumen de documentos</h1>
-        <dl class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <dl class="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
             @foreach ([
-                ['Total', $resumen['total'], 'text-sdaya-700'],
-                ['Borradores', $resumen['borradores'], 'text-amber-700'],
-                ['Emitidos', $resumen['emitidos'], 'text-emerald-700'],
-                ['Anulados', $resumen['anulados'], 'text-red-700'],
-            ] as [$label, $value, $color])
-                <div class="card p-5">
-                    <dt class="text-xs font-bold tracking-wide text-slate-500 uppercase">{{ $label }}</dt>
-                    <dd class="mt-2 text-3xl font-black {{ $color }}">{{ number_format($value) }}</dd>
+                ['Total', $resumen['total'], 'text-slate-800', 'bg-slate-100', 'ring-slate-200', 'file-text'],
+                ['Borradores', $resumen['borradores'], 'text-amber-700', 'bg-amber-50/80', 'ring-amber-200', 'edit'],
+                ['Emitidos', $resumen['emitidos'], 'text-emerald-700', 'bg-emerald-50/80', 'ring-emerald-200', 'check-circle'],
+                ['Anulados', $resumen['anulados'], 'text-red-700', 'bg-red-50/80', 'ring-red-200', 'alert-circle'],
+            ] as [$label, $value, $textColor, $bgColor, $ringColor, $icon])
+                <div class="card flex items-center justify-between p-3 sm:p-3.5 transition-shadow hover:shadow-sm">
+                    <div>
+                        <dt class="text-[10px] sm:text-[11px] font-bold tracking-wide text-slate-500 uppercase">{{ $label }}</dt>
+                        <dd class="mt-0.5 text-xl sm:text-2xl font-black {{ $textColor }} leading-tight">{{ number_format($value) }}</dd>
+                    </div>
+                    <span class="grid size-9 shrink-0 place-items-center rounded-xl {{ $bgColor }} {{ $textColor }} ring-1 {{ $ringColor }}">
+                        <x-icon :name="$icon" size="17" />
+                    </span>
                 </div>
             @endforeach
         </dl>
     </section>
 
-    <section class="card mt-6 p-4 sm:p-5" aria-labelledby="filtros-titulo">
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3"><span class="grid size-9 place-items-center rounded-xl bg-sdaya-50 text-sdaya-700"><x-icon name="search" size="17" /></span><div><h2 id="filtros-titulo" class="text-base font-black text-sdaya-950">Buscar y filtrar</h2><p class="mt-0.5 hidden text-xs text-slate-500 sm:block">Encuentra documentos por sus datos principales.</p></div></div>
+    <section class="card mt-4 p-3.5 sm:p-4" aria-labelledby="filtros-titulo">
+        <div class="flex items-center justify-between gap-4 border-b border-slate-100 pb-2.5">
+            <div class="flex items-center gap-2">
+                <span class="grid size-7 place-items-center rounded-lg bg-slate-100 text-slate-700"><x-icon name="search" size="14" /></span>
+                <div>
+                    <h2 id="filtros-titulo" class="text-xs sm:text-sm font-black text-slate-900">Buscar y filtrar</h2>
+                </div>
+            </div>
             @if (array_filter($filtros))
-                <a href="{{ route('documentos.index') }}" class="focus-ring rounded text-sm font-bold text-sdaya-700 hover:underline">Limpiar filtros</a>
+                <a href="{{ route('documentos.index') }}" class="focus-ring rounded text-xs font-bold text-slate-600 hover:text-slate-900 hover:underline flex items-center gap-1">
+                    <x-icon name="x" size="12" /> Limpiar filtros
+                </a>
             @endif
         </div>
-        <form method="GET" action="{{ route('documentos.index') }}" class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[1.6fr_repeat(4,1fr)_auto]">
+        <form method="GET" action="{{ route('documentos.index') }}" class="mt-3 grid gap-2.5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[1.4fr_repeat(5,1fr)_auto]">
             <div>
-                <label for="buscar" class="form-label">Texto</label>
-                <input id="buscar" name="buscar" type="search" value="{{ $filtros['buscar'] ?? '' }}" class="form-input" placeholder="CITE, asunto o destinatario">
+                <label for="buscar" class="sr-only">Texto</label>
+                <input id="buscar" name="buscar" type="search" value="{{ $filtros['buscar'] ?? '' }}" class="form-input text-xs py-2" placeholder="CITE, asunto o destinatario...">
             </div>
             <div>
-                <label for="area_id" class="form-label">Área</label>
-                <select id="area_id" name="area_id" class="form-select">
-                    <option value="">Todas</option>
+                <label for="empresa_id" class="sr-only">Empresa</label>
+                <select id="empresa_id" name="empresa_id" class="form-select text-xs py-2">
+                    <option value="">Empresa: Todas</option>
+                    @foreach ($empresas as $empresa)
+                        <option value="{{ $empresa->id }}" @selected((string) ($filtros['empresa_id'] ?? '') === (string) $empresa->id)>{{ $empresa->nombre }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label for="area_id" class="sr-only">Área</label>
+                <select id="area_id" name="area_id" class="form-select text-xs py-2">
+                    <option value="">Área: Todas</option>
                     @foreach ($areas as $area)
-                        <option value="{{ $area->id }}" @selected((string) ($filtros['area_id'] ?? '') === (string) $area->id)>{{ $area->codigo }}</option>
+                        <option value="{{ $area->id }}" @selected((string) ($filtros['area_id'] ?? '') === (string) $area->id)>{{ $area->codigo }} - {{ $area->nombre }}</option>
                     @endforeach
                 </select>
             </div>
             <div>
-                <label for="tipo_id" class="form-label">Tipo</label>
-                <select id="tipo_id" name="tipo_id" class="form-select">
-                    <option value="">Todos</option>
+                <label for="tipo_id" class="sr-only">Tipo</label>
+                <select id="tipo_id" name="tipo_id" class="form-select text-xs py-2">
+                    <option value="">Tipo: Todos</option>
                     @foreach ($tipos as $tipo)
-                        <option value="{{ $tipo->id }}" @selected((string) ($filtros['tipo_id'] ?? '') === (string) $tipo->id)>{{ $tipo->codigo }}</option>
+                        <option value="{{ $tipo->id }}" @selected((string) ($filtros['tipo_id'] ?? '') === (string) $tipo->id)>{{ $tipo->codigo }} - {{ $tipo->nombre }}</option>
                     @endforeach
                 </select>
             </div>
             <div>
-                <label for="anio" class="form-label">Año</label>
-                <select id="anio" name="anio" class="form-select">
-                    <option value="">Todos</option>
+                <label for="anio" class="sr-only">Año</label>
+                <select id="anio" name="anio" class="form-select text-xs py-2">
+                    <option value="">Año: Todos</option>
                     @foreach ($anios as $anio)
                         <option value="{{ $anio }}" @selected((string) ($filtros['anio'] ?? '') === (string) $anio)>{{ $anio }}</option>
                     @endforeach
                 </select>
             </div>
             <div>
-                <label for="estado" class="form-label">Estado</label>
-                <select id="estado" name="estado" class="form-select">
-                    <option value="">Todos</option>
+                <label for="estado" class="sr-only">Estado</label>
+                <select id="estado" name="estado" class="form-select text-xs py-2">
+                    <option value="">Estado: Todos</option>
                     @foreach ($estados as $estado)
                         <option value="{{ $estado->value }}" @selected(($filtros['estado'] ?? '') === $estado->value)>{{ $estado->etiqueta() }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="flex items-end">
-                <button type="submit" class="btn-secondary w-full xl:w-auto"><x-icon name="search" size="17" /> Aplicar</button>
+            <div class="flex items-center">
+                <button type="submit" class="btn-secondary w-full py-2 text-xs font-bold xl:w-auto"><x-icon name="search" size="14" /> Filtrar</button>
             </div>
         </form>
     </section>
 
-    <section class="card mt-6 overflow-hidden" aria-labelledby="listado-titulo">
+    <section class="card mt-4 overflow-hidden" aria-labelledby="listado-titulo">
         <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
-            <div><h2 id="listado-titulo" class="font-black text-sdaya-950">Listado de documentos</h2><p class="mt-1 text-xs text-slate-500">Ordenados por la actualización más reciente.</p></div>
-            <span class="rounded-full bg-sdaya-50 px-3 py-1 text-xs font-black text-sdaya-700 ring-1 ring-sdaya-200">{{ $documentos->total() }} resultado{{ $documentos->total() === 1 ? '' : 's' }}</span>
+            <div><h2 id="listado-titulo" class="font-black text-slate-900">Listado de documentos</h2><p class="mt-1 text-xs text-slate-500">Ordenados por la actualización más reciente.</p></div>
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{{ $documentos->total() }} resultado{{ $documentos->total() === 1 ? '' : 's' }}</span>
         </div>
 
         @if ($documentos->isEmpty())
@@ -107,13 +128,24 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($documentos as $documento)
-                            <tr class="group transition-colors hover:bg-sdaya-50/60">
-                                <td class="px-5 py-4"><span class="font-mono font-bold text-sdaya-800">{{ $documento->cite ?: 'BORRADOR #'.$documento->id }}</span><br><span class="text-xs text-slate-500">{{ $documento->fecha_documento->format('d/m/Y') }}</span></td>
+                            <tr class="group transition-colors hover:bg-slate-50">
+                                <td class="px-5 py-4"><span class="font-mono font-bold text-slate-900">{{ $documento->cite ?: 'BORRADOR #'.$documento->id }}</span><br><span class="text-xs text-slate-500">{{ $documento->fecha_documento->format('d/m/Y') }}</span></td>
                                 <td class="max-w-sm px-5 py-4"><p class="truncate font-bold text-slate-950">{{ $documento->asunto ?: \Illuminate\Support\Str::limit(trim(strip_tags($documento->contenido)), 80) }}</p>@if (filled($documento->destinatario))<p class="mt-1 truncate text-xs text-slate-500">Para: {{ $documento->destinatario }}</p>@endif</td>
-                                <td class="px-5 py-4"><span class="font-bold">{{ $documento->area->codigo }}</span> · {{ $documento->tipo->codigo }}</td>
+                                <td class="px-5 py-4">
+                                    <span class="font-bold">{{ $documento->area->codigo }}</span> · {{ $documento->tipo->codigo }}
+                                    <p class="mt-0.5 text-[11px] font-bold text-slate-500 truncate max-w-40" title="{{ $documento->datosEmpresa()['nombre'] }}">{{ $documento->datosEmpresa()['nombre'] }}</p>
+                                </td>
                                 <td class="px-5 py-4"><x-estado-badge :estado="$documento->estado" /></td>
                                 <td class="px-5 py-4 text-slate-600">{{ $documento->updated_at->diffForHumans() }}</td>
-                                <td class="px-5 py-4 text-right"><a href="{{ route('documentos.show', $documento) }}" class="focus-ring inline-flex items-center gap-1 rounded-lg px-2 py-1.5 font-extrabold text-sdaya-700 transition-colors hover:bg-white hover:text-sdaya-900">Ver detalle <x-icon name="arrow-right" size="15" /></a></td>
+                                <td class="px-5 py-4 text-right">
+                                    <a href="{{ route('documentos.show', $documento) }}" class="focus-ring inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-extrabold transition-colors hover:bg-slate-100 {{ $documento->estaBorrador() ? 'text-amber-800 hover:text-amber-950' : 'text-slate-700 hover:text-slate-950' }}">
+                                        @if ($documento->estaBorrador())
+                                            <x-icon name="eye" size="15" /> Ver borrador
+                                        @else
+                                            Ver detalle <x-icon name="arrow-right" size="15" />
+                                        @endif
+                                    </a>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -123,10 +155,19 @@
             <ul class="divide-y divide-slate-100 lg:hidden">
                 @foreach ($documentos as $documento)
                     <li>
-                        <a href="{{ route('documentos.show', $documento) }}" class="focus-ring block p-5 transition-colors hover:bg-sdaya-50">
-                            <div class="flex items-start justify-between gap-3"><span class="font-mono text-sm font-extrabold text-sdaya-800">{{ $documento->cite ?: 'BORRADOR #'.$documento->id }}</span><x-estado-badge :estado="$documento->estado" /></div>
+                        <a href="{{ route('documentos.show', $documento) }}" class="focus-ring block p-5 transition-colors hover:bg-slate-50">
+                            <div class="flex items-start justify-between gap-3">
+                                <span class="font-mono text-sm font-extrabold text-slate-900">{{ $documento->cite ?: 'BORRADOR #'.$documento->id }}</span>
+                                <x-estado-badge :estado="$documento->estado" />
+                            </div>
                             <p class="mt-3 font-bold text-slate-950">{{ $documento->asunto ?: \Illuminate\Support\Str::limit(trim(strip_tags($documento->contenido)), 80) }}</p>
-                            <div class="mt-3 flex items-center justify-between gap-3"><p class="text-sm text-slate-500">{{ $documento->area->codigo }} · {{ $documento->tipo->codigo }} · {{ $documento->fecha_documento->format('d/m/Y') }}</p><x-icon name="arrow-right" size="17" class="text-sdaya-600" /></div>
+                            <div class="mt-3 flex items-center justify-between gap-3">
+                                <p class="text-sm text-slate-500">{{ $documento->area->codigo }} · {{ $documento->tipo->codigo }} · {{ $documento->fecha_documento->format('d/m/Y') }}</p>
+                                <span class="inline-flex items-center gap-1 text-xs font-bold {{ $documento->estaBorrador() ? 'text-amber-800' : 'text-slate-700' }}">
+                                    {{ $documento->estaBorrador() ? 'Ver borrador' : 'Ver detalle' }}
+                                    <x-icon name="{{ $documento->estaBorrador() ? 'eye' : 'arrow-right' }}" size="16" />
+                                </span>
+                            </div>
                         </a>
                     </li>
                 @endforeach

@@ -20,14 +20,15 @@ final class AutorizacionTest extends TestCase
         $this->get(route('documentos.index'))->assertRedirect(route('login'));
     }
 
-    public function test_un_lector_puede_consultar_pero_no_crear_documentos(): void
+    public function test_un_editor_puede_crear_y_consultar_documentos_pero_no_accede_a_administracion(): void
     {
-        $lector = User::factory()->lector()->create();
+        $editor = User::factory()->editor()->create();
         $documento = Documento::factory()->create();
 
-        $this->actingAs($lector)->get(route('documentos.index'))->assertOk();
-        $this->actingAs($lector)->get(route('documentos.show', $documento))->assertOk();
-        $this->actingAs($lector)->get(route('documentos.create'))->assertForbidden();
+        $this->actingAs($editor)->get(route('documentos.index'))->assertOk();
+        $this->actingAs($editor)->get(route('documentos.show', $documento))->assertOk();
+        $this->actingAs($editor)->get(route('documentos.create'))->assertOk();
+        $this->actingAs($editor)->get(route('catalogos.index'))->assertForbidden();
     }
 
     public function test_solo_un_administrador_accede_a_catalogos(): void
@@ -77,7 +78,6 @@ final class AutorizacionTest extends TestCase
     {
         $admin = User::factory()->administrador()->create();
         $editor = User::factory()->editor()->create();
-        $lector = User::factory()->lector()->create();
 
         // El administrador ve el enlace a Catálogos en el menú y dentro ve Tipos de Área y Tipos de Documento
         $respAdmin = $this->actingAs($admin)->get(route('documentos.index'));
@@ -95,11 +95,7 @@ final class AutorizacionTest extends TestCase
         $respEditor->assertSee('Nuevo documento');
         $respEditor->assertDontSee('Catálogos');
 
-        // El lector no ve catálogos ni creación de documentos
-        $respLector = $this->actingAs($lector)->get(route('documentos.index'));
-        $respLector->assertOk();
-        $respLector->assertDontSee('Catálogos');
-        $respLector->assertDontSee('Nuevo documento');
+
     }
 
     public function test_administrador_ejecuta_crud_completo_de_areas_y_tipos(): void

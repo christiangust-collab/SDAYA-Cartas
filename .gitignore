@@ -24,6 +24,8 @@ auth.json
 /storage/framework/testing/*
 !/storage/framework/testing/.gitignore
 /storage/app/private/documentos/*
+/storage/fonts/*
+!/storage/fonts/.gitignore
 /storage/*.key
 
 # Backups y volcados

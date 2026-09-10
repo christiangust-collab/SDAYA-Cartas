@@ -20,8 +20,14 @@ final class CorrelativoPreviewController extends Controller
         $area = Area::query()->activas()->findOrFail($datos['area']);
         $tipo = Tipo::query()->activos()->findOrFail($datos['tipo']);
 
+        $empresaId = $datos['empresa_id'] ?? null;
+        $empresa = $empresaId ? \App\Models\Empresa::query()->find($empresaId) : null;
+        if ($empresa === null) {
+            $empresa = $request->user()?->empresaInstitucion ?? \App\Models\Empresa::actual();
+        }
+
         return new CorrelativoPreviewResource([
-            'cite' => $cites->vistaPrevia($area, $tipo, (int) $datos['anio']),
+            'cite' => $cites->vistaPrevia($area, $tipo, (int) $datos['anio'], $empresa),
         ]);
     }
 }

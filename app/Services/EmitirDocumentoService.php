@@ -41,11 +41,21 @@ final readonly class EmitirDocumentoService
                 ]);
             }
 
+            $empresa = $bloqueado->empresa
+                ?? ($bloqueado->empresa_id ? \App\Models\Empresa::query()->find($bloqueado->empresa_id) : null)
+                ?? $bloqueado->firmante?->empresaInstitucion
+                ?? \App\Models\Empresa::actual();
+
             $asignado = $this->cites->reservarSiguiente(
                 $bloqueado->area,
                 $bloqueado->tipo,
                 $bloqueado->anio,
+                $empresa,
             );
+
+            $firmante = $bloqueado->firmante ?? $usuario;
+            $datosEmpresa = $bloqueado->datosEmpresa();
+            $datosFirmante = $bloqueado->pieFirma() ?? $firmante->datosPieFirma();
 
             $bloqueado->forceFill([
                 'cite' => $asignado->cite,
@@ -54,6 +64,10 @@ final readonly class EmitirDocumentoService
                 'hash_verificacion' => bin2hex(random_bytes(32)),
                 'emitido_por' => $usuario->getKey(),
                 'emitido_at' => now(),
+                'empresa_id' => $bloqueado->empresa_id ?: ($datosEmpresa['id'] ?? null),
+                'datos_empresa' => $datosEmpresa,
+                'firmante_id' => $bloqueado->firmante_id ?: $firmante->getKey(),
+                'datos_firmante' => $datosFirmante,
             ]);
             $bloqueado->hash_contenido = $this->hashes->contenido($bloqueado);
             $bloqueado->save();
@@ -73,7 +87,7 @@ final readonly class EmitirDocumentoService
                 ['cite' => $bloqueado->cite],
             );
 
-            return $bloqueado->fresh(['area', 'tipo', 'emisor', 'eventos.usuario']);
+            return $bloqueado->fresh(['area', 'tipo', 'emisor', 'firmante', 'eventos.usuario']);
         }, 3);
     }
 }

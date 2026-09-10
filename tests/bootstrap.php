@@ -15,8 +15,11 @@ declare(strict_types=1);
 |
 */
 
+ini_set('memory_limit', '512M');
+
 $variables = [
     'APP_ENV' => 'testing',
+    'APP_KEY' => 'base64:3uJ2bIsqiZ7qH1kO5R3WkZ9oT8rY4vX1aB2cDeFgHiJ=',
     'APP_MAINTENANCE_DRIVER' => 'file',
     'BCRYPT_ROUNDS' => '4',
     'CACHE_STORE' => 'array',

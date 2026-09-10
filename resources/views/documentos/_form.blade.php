@@ -6,6 +6,9 @@
     $lugar = old('lugar', $esEdicion && $documento->lugar !== null ? $documento->lugar : config('sdaya.marca.lugar', 'La Paz'));
     $contenido = old('contenido', $esEdicion ? $documento->contenido : '');
     $alineacion = old('alineacion_encabezado', $esEdicion ? ($documento->alineacion_encabezado ?? 'right') : 'right');
+    $alineacionPieFirma = old('alineacion_pie_firma', $esEdicion ? ($documento->alineacion_pie_firma ?? $documento->alineacion_encabezado ?? 'right') : 'right');
+    $firmanteSeleccionado = old('firmante_id', $esEdicion ? ($documento->firmante_id ?? auth()->id()) : auth()->id());
+    $firmantes = $firmantes ?? \App\Models\User::query()->whereIn('role', [\App\Enums\RolUsuario::ADMIN, \App\Enums\RolUsuario::EDITOR])->orderBy('name')->get();
 @endphp
 
 <form
@@ -90,7 +93,7 @@
             <div class="mt-6">
                 <label class="form-label">Alineación del encabezado (Lugar / Fecha / CITE)</label>
                 <input type="hidden" name="alineacion_encabezado" id="alineacion_encabezado" value="{{ $alineacion }}">
-                <div class="flex gap-2" role="group" aria-label="Alineación del encabezado">
+                <div class="flex gap-2" role="group" aria-label="Alineación del encabezado" data-align-group="alineacion_encabezado">
                     @foreach (['left' => ['Izquierda', 'align-left'], 'center' => ['Centro', 'align-center'], 'right' => ['Derecha', 'align-right']] as $val => [$etiqueta, $icono])
                         <button type="button"
                             class="align-btn flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-extrabold transition-all"
@@ -106,9 +109,85 @@
             </div>
         </section>
 
-        <section class="card p-5 sm:p-7" aria-labelledby="contenido-titulo">
+        <section class="card p-5 sm:p-7" aria-labelledby="firmante-titulo">
             <div class="section-header">
                 <span class="section-number" aria-hidden="true">03</span>
+                <div>
+                    <h2 id="firmante-titulo" class="text-lg font-black tracking-tight text-sdaya-950">Firmante y Pie de Firma</h2>
+                    <p class="mt-1 text-sm leading-6 text-slate-500">Selecciona el firmante institucional y la alineación visual del bloque de firma.</p>
+                </div>
+            </div>
+
+            <div class="mt-6 grid gap-x-5 gap-y-6 md:grid-cols-2">
+                <div>
+                    <input type="hidden" name="empresa_id" id="documento_empresa_id" value="{{ old('empresa_id', $esEdicion ? $documento->empresa_id : ($documento->firmante?->empresa_id ?? auth()->user()->empresa_id)) }}">
+                    <label for="firmante_id" class="form-label">Firmante institucional <span aria-hidden="true" class="text-red-600">*</span></label>
+                    <select id="firmante_id" name="firmante_id" class="form-select" data-firmante-select aria-describedby="firmante-ayuda firmante-error">
+                        @foreach ($firmantes as $f)
+                            @php $fPie = $f->datosPieFirma(); @endphp
+                            <option
+                                value="{{ $f->id }}"
+                                @selected((string) $firmanteSeleccionado === (string) $f->id)
+                                data-nombre="{{ $fPie['nombre'] }}"
+                                data-cargo="{{ $fPie['cargo'] }}"
+                                data-empresa="{{ $fPie['empresa'] }}"
+                                data-correo="{{ $fPie['correo'] }}"
+                                data-telefono="{{ $fPie['telefono'] }}"
+                                data-firma="{{ $f->firmaDataUri() ?? '' }}"
+                                data-empresa-id="{{ $f->empresa_id }}"
+                            >
+                                {{ $f->name }} @if($f->cargo) ({{ $f->cargo }}) @endif @if($f->empresaInstitucion) — {{ $f->empresaInstitucion->nombre }} @endif
+                            </option>
+                        @endforeach
+                    </select>
+                    <p id="firmante-ayuda" class="field-note"><x-icon name="user" size="14" /> Persona responsable de la firma de este documento.</p>
+                    <x-input-error id="firmante-error" :messages="$errors->get('firmante_id')" />
+                </div>
+
+                <div>
+                    @php
+                        $cardAlignClass = match($alineacionPieFirma) {
+                            'left' => 'text-left',
+                            'center' => 'text-center',
+                            default => 'text-right',
+                        };
+                    @endphp
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 transition-all {{ $cardAlignClass }}" data-firmante-card>
+                        <p class="text-[10px] font-black tracking-wide text-slate-600 uppercase">Pie de firma configurado</p>
+                        <div class="hidden -mb-2 mt-1" data-firmante-rubrica-wrapper>
+                            <img src="" alt="Rúbrica del firmante" class="h-14 max-w-44 object-contain inline-block" data-firmante-rubrica-img>
+                        </div>
+                        <p class="mt-1 text-sm font-bold text-slate-900 leading-tight" data-firmante-nombre-preview>—</p>
+                        <p class="text-xs font-bold text-slate-900 uppercase leading-tight mt-0.5" data-firmante-cargo-preview></p>
+                        <p class="text-[11px] font-bold text-slate-900 uppercase leading-tight mt-0.5" data-firmante-empresa-preview></p>
+                        <p class="text-xs text-slate-900 leading-tight mt-0.5" data-firmante-telefono-preview></p>
+                        <p class="text-xs text-slate-900 leading-tight mt-0.5" data-firmante-correo-preview></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 border-t border-slate-200/80 pt-5">
+                <label class="form-label">Alineación del pie de firma</label>
+                <input type="hidden" name="alineacion_pie_firma" id="alineacion_pie_firma" value="{{ $alineacionPieFirma }}">
+                <div class="flex gap-2" role="group" aria-label="Alineación del pie de firma" data-align-group="alineacion_pie_firma">
+                    @foreach (['left' => ['Izquierda', 'align-left'], 'center' => ['Centro', 'align-center'], 'right' => ['Derecha', 'align-right']] as $val => [$etiqueta, $icono])
+                        <button type="button"
+                            class="align-btn flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-extrabold transition-all"
+                            data-align="{{ $val }}"
+                            aria-pressed="{{ $alineacionPieFirma === $val ? 'true' : 'false' }}"
+                        >
+                            <x-icon name="{{ $icono }}" size="16" />
+                            {{ $etiqueta }}
+                        </button>
+                    @endforeach
+                </div>
+                <x-input-error :messages="$errors->get('alineacion_pie_firma')" />
+            </div>
+        </section>
+
+        <section class="card p-5 sm:p-7" aria-labelledby="contenido-titulo">
+            <div class="section-header">
+                <span class="section-number" aria-hidden="true">04</span>
                 <div>
                     <h2 id="contenido-titulo" class="text-lg font-black tracking-tight text-sdaya-950">Contenido de la carta</h2>
                     <p id="contenido-ayuda" class="mt-1 text-sm leading-6 text-slate-500">Redacta el cuerpo del documento con formato enriquecido estilo Microsoft Word (fuentes, tablas, imágenes y alineaciones).</p>
@@ -159,31 +238,35 @@
     </div>
 
     <aside class="space-y-5 xl:sticky xl:top-24 xl:self-start">
-        <section class="overflow-hidden rounded-2xl border border-sdaya-800 bg-sdaya-950 text-white shadow-xl shadow-sdaya-950/12" aria-labelledby="cite-preview-title">
-            <div class="relative overflow-hidden p-6">
-                <div class="pointer-events-none absolute -top-14 -right-10 size-40 rounded-full border border-sdaya-400/20" aria-hidden="true"></div>
-                <div class="pointer-events-none absolute -top-6 -right-2 size-24 rounded-full border border-sdaya-400/20" aria-hidden="true"></div>
-                <span class="grid size-10 place-items-center rounded-xl bg-white/10 text-sdaya-300 ring-1 ring-white/10"><x-icon name="file-text" size="20" /></span>
-                <p id="cite-preview-title" class="eyebrow mt-5 text-sdaya-300">Vista previa del CITE</p>
-                <p class="mt-3 break-all font-mono text-xl leading-8 font-black" data-cite-preview>{{ $esEdicion && $documento->cite ? $documento->cite : 'Selecciona área, tipo y fecha' }}</p>
+        <section class="card p-5" aria-labelledby="cite-preview-title">
+            <div class="flex items-center gap-3">
+                <span class="grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-700"><x-icon name="file-text" size="18" /></span>
+                <div>
+                    <h2 id="cite-preview-title" class="font-black text-slate-900">Vista previa del CITE</h2>
+                    <p class="mt-0.5 text-xs text-slate-500">Identificador correlativo</p>
+                </div>
             </div>
-            <div class="border-t border-white/10 bg-white/5 p-5">
-                <p class="flex items-start gap-2 text-xs leading-5 text-sdaya-100" data-cite-message><x-icon name="info" size="15" class="mt-0.5" /> <span>El número es informativo y solo se reserva al emitir.</span></p>
+            <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3.5 sm:p-4">
+                <p class="break-words font-mono text-base sm:text-lg font-black leading-snug text-slate-900" data-cite-preview>{{ $esEdicion && $documento->cite ? $documento->cite : 'Selecciona área, tipo y fecha' }}</p>
+            </div>
+            <div class="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-500">
+                <x-icon name="info" size="15" class="mt-0.5 shrink-0 text-slate-400" />
+                <span data-cite-message>El número es informativo y solo se reserva al emitir.</span>
             </div>
         </section>
 
         <section class="card p-5" aria-labelledby="acciones-titulo">
             <div class="flex items-center gap-3">
-                <span class="grid size-9 place-items-center rounded-xl bg-sdaya-50 text-sdaya-700"><x-icon name="send" size="18" /></span>
-                <div><h2 id="acciones-titulo" class="font-black text-sdaya-950">Guardar documento</h2><p class="mt-0.5 text-xs text-slate-500">Elige cómo continuar.</p></div>
+                <span class="grid size-9 place-items-center rounded-xl bg-slate-100 text-slate-700"><x-icon name="eye" size="18" /></span>
+                <div><h2 id="acciones-titulo" class="font-black text-slate-900">Guardar y revisar</h2><p class="mt-0.5 text-xs text-slate-500">Revisa la carta antes de finalizar.</p></div>
             </div>
             <div class="mt-5 space-y-3">
-                <button type="submit" name="accion" value="guardar" class="btn-secondary w-full"><x-icon name="save" size="18" /> Guardar borrador</button>
-                <button type="submit" name="accion" value="emitir" class="btn-primary w-full" data-confirm="Al emitir se reservará el correlativo y el documento ya no podrá editarse. ¿Deseas continuar?"><x-icon name="send" size="18" /> Guardar y emitir</button>
+                <button type="submit" name="accion" value="guardar" class="btn-primary w-full"><x-icon name="eye" size="18" /> Guardar y ver vista previa</button>
+                <button type="submit" name="accion" value="emitir" class="btn-secondary w-full" data-confirm="Al finalizar se reservará el correlativo oficial y el documento ya no podrá editarse. ¿Deseas continuar?"><x-icon name="send" size="18" /> Guardar y finalizar</button>
                 <a href="{{ $esEdicion ? route('documentos.show', $documento) : route('documentos.index') }}" class="btn-ghost w-full"><x-icon name="x" size="17" /> Cancelar</a>
             </div>
             <div class="mt-5 rounded-xl bg-slate-50 p-3.5">
-                <p class="flex items-start gap-2 text-xs leading-5 text-slate-500"><x-icon name="info" size="15" class="mt-0.5 shrink-0 text-sdaya-600" /> Emitir genera PDF, Word y QR, y bloquea la edición del documento.</p>
+                <p class="flex items-start gap-2 text-xs leading-5 text-slate-500"><x-icon name="info" size="15" class="mt-0.5 shrink-0 text-slate-400" /> La vista previa te permite revisar el formato completo antes de emitir la carta oficial.</p>
             </div>
         </section>
 

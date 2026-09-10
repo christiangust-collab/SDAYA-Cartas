@@ -29,6 +29,9 @@ final class GuardarDocumentoRequest extends FormRequest
             'alineacion_encabezado' => in_array($this->input('alineacion_encabezado'), ['left', 'center', 'right'], true)
                 ? $this->input('alineacion_encabezado')
                 : 'right',
+            'alineacion_pie_firma' => in_array($this->input('alineacion_pie_firma'), ['left', 'center', 'right'], true)
+                ? $this->input('alineacion_pie_firma')
+                : (in_array($this->input('alineacion_encabezado'), ['left', 'center', 'right'], true) ? $this->input('alineacion_encabezado') : 'right'),
         ]);
     }
 
@@ -52,11 +55,24 @@ final class GuardarDocumentoRequest extends FormRequest
                 'integer',
                 Rule::exists('tipos', 'id')->where('activo', true),
             ],
+            'empresa_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('empresas', 'id')->where('activo', true),
+            ],
             'fecha_documento' => ['required', 'date_format:Y-m-d', 'after_or_equal:2020-01-01', 'before_or_equal:+1 year'],
             'lugar' => ['nullable', 'string', 'max:80'],
             'alineacion_encabezado' => ['required', Rule::in(['left', 'center', 'right'])],
+            'alineacion_pie_firma' => ['required', Rule::in(['left', 'center', 'right'])],
             'asunto' => ['nullable', 'string', 'max:250'],
             'destinatario' => ['nullable', 'string', 'max:250'],
+            'firmante_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
+            'datos_firmante' => ['nullable', 'array'],
+            'datos_firmante.nombre' => ['nullable', 'string', 'max:150'],
+            'datos_firmante.cargo' => ['nullable', 'string', 'max:150'],
+            'datos_firmante.empresa' => ['nullable', 'string', 'max:150'],
+            'datos_firmante.correo' => ['nullable', 'email', 'max:150'],
+            'datos_firmante.telefono' => ['nullable', 'string', 'max:50'],
             'contenido' => ['required', 'string', 'max:200000'],
             'accion' => ['required', Rule::in(['guardar', 'emitir'])],
         ];

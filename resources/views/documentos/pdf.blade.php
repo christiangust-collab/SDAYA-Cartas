@@ -62,7 +62,9 @@
     </style>
 </head>
 <body>
-    <img src="{{ $membreteDataUri }}" class="membrete" alt="">
+    @if ($membreteDataUri)
+        <img src="{{ $membreteDataUri }}" class="membrete" alt="">
+    @endif
 
     @if (! str_contains($contenidoDocumento, 'data-sdaya-meta'))
         <div class="meta">
@@ -72,6 +74,38 @@
     @endif
 
     <div class="contenido">{!! $contenidoDocumento !!}</div>
+
+    @php
+        $pieFirma = $documento->pieFirma();
+        $firmaDataUri = $documento->firmaDataUri();
+        $alineacionPiePdf = match($documento->alineacion_pie_firma ?? $documento->alineacion_encabezado ?? 'right') {
+            'left'   => 'left',
+            'center' => 'center',
+            default  => 'right',
+        };
+    @endphp
+    @if ($pieFirma && (!empty($pieFirma['nombre']) || !empty($pieFirma['cargo'])))
+        <div class="pie-firma" style="margin-top: 28px; text-align: {{ $alineacionPiePdf }}; page-break-inside: avoid; line-height: 1.25;">
+            @if ($firmaDataUri)
+                <div style="margin-bottom: -10px;">
+                    <img src="{{ $firmaDataUri }}" alt="Firma" style="max-height: 75px; max-width: 200px; display: inline-block;">
+                </div>
+            @endif
+            <div style="font-weight: bold; font-size: 10.5pt; color: #0f172a; margin-bottom: 2px;">{{ $pieFirma['nombre'] }}</div>
+            @if (!empty($pieFirma['cargo']))
+                <div style="font-weight: bold; font-size: 9.5pt; color: #0f172a; text-transform: uppercase; margin-bottom: 2px;">{{ $pieFirma['cargo'] }}</div>
+            @endif
+            @if (!empty($pieFirma['empresa']))
+                <div style="font-weight: bold; font-size: 8.5pt; color: #0f172a; text-transform: uppercase; margin-bottom: 2px;">{{ $pieFirma['empresa'] }}</div>
+            @endif
+            @if (!empty($pieFirma['telefono']))
+                <div style="font-size: 9pt; color: #0f172a; margin-bottom: 1px;"><span style="font-weight: bold;">móvil:</span> {{ $pieFirma['telefono'] }}</div>
+            @endif
+            @if (!empty($pieFirma['correo']))
+                <div style="font-size: 9pt; color: #0f172a;"><span style="font-weight: bold;">email:</span> {{ $pieFirma['correo'] }}</div>
+            @endif
+        </div>
+    @endif
 
     @if (! str_contains($contenidoDocumento, 'data-sdaya-qr'))
         <div class="verificacion">
