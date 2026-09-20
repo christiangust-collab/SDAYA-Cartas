@@ -29,11 +29,15 @@ final class DocumentoController extends Controller
 
         $queryBase = Documento::query();
 
-        if ($usuario && ! $usuario->esAdministrador()) {
-            $queryBase->where(function ($q) use ($usuario) {
-                $q->where('estado', '!=', EstadoDocumento::BORRADOR)
-                  ->orWhere('emitido_por', $usuario->id);
-            });
+        if ($usuario) {
+            $queryBase->paraUsuario($usuario);
+
+            if (! $usuario->esAdministrador()) {
+                $queryBase->where(function ($q) use ($usuario) {
+                    $q->where('estado', '!=', EstadoDocumento::BORRADOR)
+                      ->orWhere('emitido_por', $usuario->id);
+                });
+            }
         }
 
         $documentos = (clone $queryBase)
@@ -43,11 +47,15 @@ final class DocumentoController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        $empresas = ($usuario && ! $usuario->esAdministrador() && $usuario->empresa_id)
+            ? Empresa::query()->where('id', $usuario->empresa_id)->get()
+            : Empresa::query()->activas()->orderBy('nombre')->get();
+
         return view('documentos.index', [
             'documentos' => $documentos,
             'areas' => Area::query()->orderBy('codigo')->get(),
             'tipos' => Tipo::query()->orderBy('codigo')->get(),
-            'empresas' => Empresa::query()->activas()->orderBy('nombre')->get(),
+            'empresas' => $empresas,
             'anios' => Documento::query()->select('anio')->distinct()->orderByDesc('anio')->pluck('anio'),
             'estados' => EstadoDocumento::cases(),
             'filtros' => $filtros,

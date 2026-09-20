@@ -4,6 +4,8 @@
     $areaSeleccionada = old('area_id', $esEdicion ? $documento->area_id : '');
     $tipoSeleccionado = old('tipo_id', $esEdicion ? $documento->tipo_id : '');
     $lugar = old('lugar', $esEdicion && $documento->lugar !== null ? $documento->lugar : config('sdaya.marca.lugar', 'La Paz'));
+    $destinatario = old('destinatario', $esEdicion ? $documento->destinatario : '');
+    $asunto = old('asunto', $esEdicion ? $documento->asunto : '');
     $contenido = old('contenido', $esEdicion ? $documento->contenido : '');
     $alineacion = old('alineacion_encabezado', $esEdicion ? ($documento->alineacion_encabezado ?? 'right') : 'right');
     $alineacionPieFirma = old('alineacion_pie_firma', $esEdicion ? ($documento->alineacion_pie_firma ?? $documento->alineacion_encabezado ?? 'right') : 'right');
@@ -78,6 +80,20 @@
                     <input id="lugar" name="lugar" type="text" value="{{ $lugar }}" class="form-input" maxlength="80" placeholder="Ciudad desde la que se emite" aria-describedby="lugar-ayuda lugar-error">
                     <p id="lugar-ayuda" class="field-note"><x-icon name="map-pin" size="14" /> Aparecerá junto a la fecha en el encabezado.</p>
                     <x-input-error id="lugar-error" :messages="$errors->get('lugar')" />
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="destinatario" class="form-label">Destinatario <span aria-hidden="true" class="text-red-600">*</span></label>
+                    <input id="destinatario" name="destinatario" type="text" value="{{ $destinatario }}" class="form-input" maxlength="250" placeholder="Ej: Ing. Carlos Mamani — Gerente General EPSAS" required aria-describedby="destinatario-ayuda destinatario-error">
+                    <p id="destinatario-ayuda" class="field-note"><x-icon name="user" size="14" /> Persona, cargo o institución a quien va dirigida la carta o nota (clave para futuras búsquedas).</p>
+                    <x-input-error id="destinatario-error" :messages="$errors->get('destinatario')" />
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="asunto" class="form-label">Referencia / Asunto <span aria-hidden="true" class="text-red-600">*</span></label>
+                    <input id="asunto" name="asunto" type="text" value="{{ $asunto }}" class="form-input" maxlength="250" placeholder="Ej: Solicitud de inspección técnica red matriz" required aria-describedby="asunto-ayuda asunto-error">
+                    <p id="asunto-ayuda" class="field-note"><x-icon name="file-text" size="14" /> Motivo formal de la carta o nota (REF), usado para el archivo y filtrado rápido.</p>
+                    <x-input-error id="asunto-error" :messages="$errors->get('asunto')" />
                 </div>
             </div>
         </section>
@@ -155,7 +171,7 @@
                     <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 transition-all {{ $cardAlignClass }}" data-firmante-card>
                         <p class="text-[10px] font-black tracking-wide text-slate-600 uppercase">Pie de firma configurado</p>
                         <div class="hidden -mb-2 mt-1" data-firmante-rubrica-wrapper>
-                            <img src="" alt="Rúbrica del firmante" class="h-14 max-w-44 object-contain inline-block" data-firmante-rubrica-img>
+                            <img src="" alt="Rúbrica del firmante" class="h-24 max-w-56 object-contain inline-block" data-firmante-rubrica-img>
                         </div>
                         <p class="mt-1 text-sm font-bold text-slate-900 leading-tight" data-firmante-nombre-preview>—</p>
                         <p class="text-xs font-bold text-slate-900 uppercase leading-tight mt-0.5" data-firmante-cargo-preview></p>
@@ -224,13 +240,20 @@
                     <input id="docx-archivo" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-sdaya-50 file:px-3 file:py-1.5 file:text-xs file:font-extrabold file:text-sdaya-700">
                     <p id="docx-error" class="mt-2 hidden text-xs font-bold text-red-700" role="alert"></p>
                 </div>
-                <p id="docx-limitaciones" class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs leading-5 text-amber-900">
-                    <strong>Nota:</strong> Se conservará texto, negrita, cursiva, colores y alineación básica. Estilos avanzados y numeraciones complejas pueden no importarse perfectamente.
-                </p>
+                <div class="mt-4 space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-700">
+                    <label class="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input type="checkbox" id="docx-omitir-firma" checked class="mt-0.5 rounded border-slate-300 text-sdaya-600 focus:ring-sdaya-500">
+                        <span><strong>Omitir pie de firma del archivo Word</strong> (evita firma duplicada; el sistema colocará la firma digital institucional del firmante seleccionado).</span>
+                    </label>
+                    <label class="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input type="checkbox" id="docx-autocompletar-meta" checked class="mt-0.5 rounded border-slate-300 text-sdaya-600 focus:ring-sdaya-500">
+                        <span><strong>Autocompletar Destinatario y Referencia</strong> si se detectan en la cabecera del documento Word.</span>
+                    </label>
+                </div>
                 <div class="mt-5 flex justify-end gap-3">
                     <button type="button" id="docx-cancelar" class="btn-ghost">Cancelar</button>
                     <button type="button" id="docx-confirmar" class="btn-primary">
-                        <x-icon name="upload" size="16" /> Importar
+                        <x-icon name="upload" size="16" /> Importar contenido
                     </button>
                 </div>
             </dialog>

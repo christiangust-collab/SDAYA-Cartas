@@ -37,7 +37,10 @@ import {
     Underline,
     Undo,
 } from 'ckeditor5';
+import { PageBreak } from '@ckeditor/ckeditor5-page-break';
+import { GeneralHtmlSupport } from '@ckeditor/ckeditor5-html-support';
 import 'ckeditor5/ckeditor5.css';
+import '@ckeditor/ckeditor5-page-break/dist/index.css';
 
 document.documentElement.classList.add('js');
 
@@ -355,6 +358,8 @@ function setupImportadorDocx(editor, wrapper) {
     const botonAbrir = select('[data-importar-docx]', wrapper.closest('[data-editor-wrapper]') ?? document);
     const modal = select('#modal-importar-docx');
     const inputArchivo = select('#docx-archivo');
+    const checkOmitirFirma = select('#docx-omitir-firma');
+    const checkAutocompletarMeta = select('#docx-autocompletar-meta');
     const botonCancelar = select('#docx-cancelar');
     const botonConfirmar = select('#docx-confirmar');
     const errorEl = select('#docx-error');
@@ -385,9 +390,13 @@ function setupImportadorDocx(editor, wrapper) {
         botonConfirmar.textContent = 'Importando…';
         if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
 
+        const omitirFirma = checkOmitirFirma ? checkOmitirFirma.checked : true;
+        const autocompletarMeta = checkAutocompletarMeta ? checkAutocompletarMeta.checked : true;
+
         try {
             const formData = new FormData();
             formData.append('archivo', archivo);
+            formData.append('omitir_firma', omitirFirma ? '1' : '0');
 
             const respuesta = await fetch(importarUrl, {
                 method: 'POST',
@@ -407,6 +416,36 @@ function setupImportadorDocx(editor, wrapper) {
 
             if (typeof datos.html === 'string' && editor) {
                 editor.setData(datos.html);
+
+                // Autocompletar Destinatario, Referencia y Firmante si se detectaron
+                if (autocompletarMeta) {
+                    const inputDestinatario = select('#destinatario');
+                    const inputAsunto = select('#asunto');
+                    const inputFecha = select('#fecha_documento');
+                    const selectFirmante = select('#firmante_id');
+
+                    if (inputDestinatario && datos.destinatario && (!inputDestinatario.value || inputDestinatario.value.trim() === '')) {
+                        inputDestinatario.value = datos.destinatario;
+                    }
+                    if (inputAsunto && datos.asunto && (!inputAsunto.value || inputAsunto.value.trim() === '')) {
+                        inputAsunto.value = datos.asunto;
+                    }
+                    if (inputFecha && datos.fecha && (!inputFecha.value || inputFecha.value.trim() === '')) {
+                        inputFecha.value = datos.fecha;
+                    }
+
+                    if (selectFirmante && datos.firmante_detectado) {
+                        const buscado = datos.firmante_detectado.toLowerCase();
+                        for (const opt of selectFirmante.options) {
+                            if (opt.value && opt.textContent.toLowerCase().includes(buscado)) {
+                                selectFirmante.value = opt.value;
+                                selectFirmante.dispatchEvent(new Event('change', { bubbles: true }));
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 modal.close?.();
             }
         } catch (error) {
@@ -469,6 +508,8 @@ async function setupEditors() {
                 ImageUpload,
                 SDAYAUploadAdapterPlugin,
                 HorizontalLine,
+                PageBreak,
+                GeneralHtmlSupport,
                 Link,
                 BlockQuote,
                 PasteFromOffice,
@@ -490,7 +531,7 @@ async function setupEditors() {
                     '|',
                     'bulletedList', 'numberedList', 'outdent', 'indent',
                     '|',
-                    'insertTable', 'imageUpload', 'horizontalLine', 'link', 'blockQuote',
+                    'insertTable', 'imageUpload', 'horizontalLine', 'pageBreak', 'link', 'blockQuote',
                 ],
                 shouldNotGroupWhenFull: true,
             },
@@ -533,6 +574,16 @@ async function setupEditors() {
                     'alignLeft',
                     'alignCenter',
                     'alignRight',
+                ],
+            },
+            htmlSupport: {
+                allow: [
+                    {
+                        name: /.*/,
+                        attributes: true,
+                        classes: true,
+                        styles: true,
+                    },
                 ],
             },
             initialData: textarea.value || '',

@@ -370,4 +370,108 @@ final class ImportarDocxTest extends TestCase
         $this->assertStringContainsString('<table', $html);
         $this->assertStringContainsString('<li', $html);
     }
+
+    public function test_importa_docx_y_extrae_metadatos_destinatario_y_asunto(): void
+    {
+        $editor = User::factory()->editor()->create();
+
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $seccion = $phpWord->addSection();
+        $seccion->addText('Señor:');
+        $seccion->addText('Ing. Juan Pérez');
+        $seccion->addText('DIRECTOR GENERAL DE AGUAS');
+        $seccion->addText('Presente.-');
+        $seccion->addText('REF: SOLICITUD DE REUNIÓN DE COORDINACIÓN');
+        $seccion->addText('De nuestra mayor consideración, le escribimos para coordinar la fecha...');
+
+        $rutaDocx = sys_get_temp_dir().'/sdaya_test_meta_'.uniqid().'.docx';
+        \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($rutaDocx);
+
+        $response = $this->actingAs($editor)->postJson(
+            route('documentos.importar-docx'),
+            ['archivo' => new \Illuminate\Http\UploadedFile($rutaDocx, 'con_meta.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', null, true)],
+        );
+
+        @unlink($rutaDocx);
+
+        $response->assertOk();
+        $this->assertStringContainsString('Ing. Juan Pérez', $response->json('destinatario'));
+        $this->assertStringContainsString('SOLICITUD DE REUNIÓN DE COORDINACIÓN', $response->json('asunto'));
+    }
+
+    public function test_importa_docx_con_salto_de_pagina(): void
+    {
+        $editor = User::factory()->editor()->create();
+
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $seccion = $phpWord->addSection();
+        $seccion->addText('Página 1 del documento');
+        $seccion->addPageBreak();
+        $seccion->addText('Página 2 del documento');
+
+        $rutaDocx = sys_get_temp_dir().'/sdaya_test_pb_'.uniqid().'.docx';
+        \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($rutaDocx);
+
+        $response = $this->actingAs($editor)->postJson(
+            route('documentos.importar-docx'),
+            ['archivo' => new \Illuminate\Http\UploadedFile($rutaDocx, 'con_pb.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', null, true)],
+        );
+
+        @unlink($rutaDocx);
+
+        $response->assertOk();
+        $html = $response->json('html');
+        $this->assertStringContainsString('page-break', $html);
+        $this->assertStringContainsString('Página 1 del documento', $html);
+        $this->assertStringContainsString('Página 2 del documento', $html);
+    }
+
+    public function test_importa_docx_con_firma_y_permite_omitirla(): void
+    {
+        $editor = User::factory()->editor()->create();
+
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $seccion = $phpWord->addSection();
+        $seccion->addText('Cuerpo del comunicado oficial.');
+        $seccion->addText('Sin otro particular, nos despedimos atentamente.');
+
+        // Bloque de firma
+        $tabla = $seccion->addTable();
+        $r = $tabla->addRow();
+        $c = $r->addCell(4000);
+        $c->addText('Lic. Carlos Morales');
+        $c->addText('GERENTE GENERAL');
+        $c->addText('móvil: 77712345');
+
+        $rutaDocx = sys_get_temp_dir().'/sdaya_test_firma_'.uniqid().'.docx';
+        \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007')->save($rutaDocx);
+
+        // Prueba con omitir_firma = true (por defecto)
+        $responseOmitir = $this->actingAs($editor)->postJson(
+            route('documentos.importar-docx'),
+            [
+                'archivo' => new \Illuminate\Http\UploadedFile($rutaDocx, 'con_firma.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', null, true),
+                'omitir_firma' => '1',
+            ],
+        );
+
+        $responseOmitir->assertOk();
+        $this->assertTrue($responseOmitir->json('tiene_firma_detectada'));
+        $this->assertStringNotContainsString('GERENTE GENERAL', $responseOmitir->json('html'));
+        $this->assertStringContainsString('GERENTE GENERAL', $responseOmitir->json('html_completo'));
+
+        // Prueba con omitir_firma = false
+        $responseIncluir = $this->actingAs($editor)->postJson(
+            route('documentos.importar-docx'),
+            [
+                'archivo' => new \Illuminate\Http\UploadedFile($rutaDocx, 'con_firma.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', null, true),
+                'omitir_firma' => '0',
+            ],
+        );
+
+        @unlink($rutaDocx);
+
+        $responseIncluir->assertOk();
+        $this->assertStringContainsString('GERENTE GENERAL', $responseIncluir->json('html'));
+    }
 }

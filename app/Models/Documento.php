@@ -208,17 +208,31 @@ final class Documento extends Model
         return $query->with(['area', 'tipo', 'emisor', 'firmante', 'empresa']);
     }
 
+    public function scopeParaUsuario(Builder $query, User $usuario): Builder
+    {
+        if ($usuario->esAdministrador()) {
+            return $query;
+        }
+
+        if ($usuario->empresa_id !== null) {
+            return $query->where('empresa_id', $usuario->empresa_id);
+        }
+
+        return $query;
+    }
+
     public function scopeFiltrar(Builder $query, array $filtros): Builder
     {
         return $query
             ->when($filtros['buscar'] ?? null, function (Builder $query, string $buscar): void {
                 $query->where(function (Builder $query) use ($buscar): void {
-                    $patron = '%'.mb_strtolower($buscar).'%';
+                    $patron = '%'.mb_strtolower(trim($buscar)).'%';
 
                     $query
                         ->whereRaw('LOWER(COALESCE(cite, ?)) LIKE ?', ['', $patron])
-                        ->orWhereRaw('LOWER(asunto) LIKE ?', [$patron])
-                        ->orWhereRaw('LOWER(destinatario) LIKE ?', [$patron]);
+                        ->orWhereRaw('LOWER(COALESCE(asunto, ?)) LIKE ?', ['', $patron])
+                        ->orWhereRaw('LOWER(COALESCE(destinatario, ?)) LIKE ?', ['', $patron])
+                        ->orWhereRaw('LOWER(contenido) LIKE ?', [$patron]);
                 });
             })
             ->when($filtros['empresa_id'] ?? null, fn (Builder $query, mixed $id): Builder => $query->where('empresa_id', $id))

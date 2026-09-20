@@ -45,8 +45,10 @@ final class ImportarDocxController extends Controller
             return response()->json(['error' => 'No se pudo procesar el archivo.'], 422);
         }
 
+        $omitirFirma = $request->boolean('omitir_firma', true);
+
         try {
-            $html = $importador->importar($archivo->getRealPath());
+            $resultado = $importador->importarConMetadatos($archivo->getRealPath(), $omitirFirma);
         } catch (RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         } catch (Throwable $e) {
@@ -55,10 +57,20 @@ final class ImportarDocxController extends Controller
             return response()->json(['error' => 'Ocurrió un error inesperado al importar el documento.'], 500);
         }
 
-        if (trim($html) === '') {
+        if (trim($resultado['html']) === '') {
             return response()->json(['error' => 'El documento importado no contiene texto legible.'], 422);
         }
 
-        return response()->json(['html' => $html]);
+        return response()->json([
+            'html' => $resultado['html'],
+            'html_completo' => $resultado['html_completo'],
+            'destinatario' => $resultado['destinatario'],
+            'asunto' => $resultado['asunto'],
+            'lugar' => $resultado['lugar'],
+            'fecha' => $resultado['fecha'],
+            'firmante_detectado' => $resultado['firmante_detectado'],
+            'cargo_detectado' => $resultado['cargo_detectado'],
+            'tiene_firma_detectada' => $resultado['tiene_firma_detectada'],
+        ]);
     }
 }

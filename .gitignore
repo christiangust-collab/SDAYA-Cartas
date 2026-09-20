@@ -33,6 +33,7 @@ auth.json
 *.sql
 *.tar.gz
 *.zip
+*.pdf
 
 # Pruebas y cobertura
 /.phpunit.cache

@@ -141,6 +141,102 @@ final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocume
         }
     }
 
+    public function renderizarPdf(Documento $documento, bool $sinMembrete = false, bool $esBorrador = false): string
+    {
+        $contenidoNormalizado = $this->imagenes->normalizar((string) $documento->contenido);
+
+        $urlVerificacion = $documento->hash_verificacion
+            ? route('verificar.show', $documento->hash_verificacion)
+            : url('/');
+
+        $qrDataUri = '';
+        if ($documento->hash_verificacion) {
+            $qr = (string) QrCode::format('png')
+                ->size(300)
+                ->margin(1)
+                ->errorCorrection('M')
+                ->generate($urlVerificacion);
+            $qrDataUri = 'data:image/png;base64,'.base64_encode($qr);
+        }
+
+        if (str_contains($contenidoNormalizado, 'data-sdaya-qr') && $qrDataUri) {
+            $contenidoNormalizado = str_replace(
+                '[QR_INSTITUCIONAL_SDAYA]',
+                '<img src="'.$qrDataUri.'" alt="QR SDAYA" style="width: 90px; height: 90px;"><p style="font-size: 7.5pt; color: #4766a9; margin-top: 4px;">Escanea para verificar autenticidad</p><p style="font-size: 6.5pt; color: #64748b; font-family: monospace;">'.$documento->hash_verificacion.'</p>',
+                $contenidoNormalizado,
+            );
+        }
+
+        if (str_contains($contenidoNormalizado, 'data-sdaya-meta')) {
+            $fechaTexto = $this->lugar($documento).', '.$documento->fecha_documento->locale('es')->translatedFormat('d \d\e F \d\e Y');
+            $citeTexto = $documento->cite ? 'CITE: '.$documento->cite : 'CITE: (Borrador)';
+            $contenidoNormalizado = (string) preg_replace(
+                '/<p class="sdaya-meta-fecha"[^>]*>.*?<\/p>/is',
+                '<p class="sdaya-meta-fecha" data-sdaya-widget="fecha">'.$fechaTexto.'</p>',
+                $contenidoNormalizado,
+            );
+            $contenidoNormalizado = (string) preg_replace(
+                '/<p class="sdaya-meta-cite"[^>]*>.*?<\/p>/is',
+                '<p class="sdaya-meta-cite" data-sdaya-widget="cite">'.$citeTexto.'</p>',
+                $contenidoNormalizado,
+            );
+        }
+
+        $cacheFuentes = $this->directorioCacheFuentes();
+        if (! is_dir($cacheFuentes)) {
+            @mkdir($cacheFuentes, 0775, true);
+        }
+
+        $pdf = Pdf::loadView('documentos.pdf', [
+            'documento' => $documento,
+            'datosEmpresa' => $documento->datosEmpresa(),
+            'contenidoDocumento' => $contenidoNormalizado,
+            'lugarDocumento' => $this->lugar($documento),
+            'membreteDataUri' => $sinMembrete ? null : $this->resolverMembreteDataUri($documento),
+            'qrDataUri' => $qrDataUri,
+            'urlVerificacion' => $urlVerificacion,
+            'alineacionEncabezado' => $this->alineacionCss($documento),
+            'sinMembrete' => $sinMembrete,
+            'esBorrador' => $esBorrador,
+        ])
+            ->setPaper('letter')
+            ->setOption('isRemoteEnabled', false)
+            ->setOption('defaultFont', 'DejaVu Sans')
+            ->setOptions([
+                'fontDir' => $cacheFuentes,
+                'fontCache' => $cacheFuentes,
+            ]);
+
+        return $pdf->output();
+    }
+
+    public function generarDocxBorrador(Documento $documento): string
+    {
+        $tempPath = tempnam(sys_get_temp_dir(), 'sdaya_docx_').'.docx';
+        $contenidoNormalizado = $this->imagenes->normalizar((string) $documento->contenido);
+        $separado = $this->separarFlotantes($contenidoNormalizado);
+        $urlVerificacion = url('/');
+
+        $qrTemp = tempnam(sys_get_temp_dir(), 'sdaya_qr_').'.png';
+        $qrContent = (string) QrCode::format('png')->size(300)->margin(1)->generate($urlVerificacion);
+        file_put_contents($qrTemp, $qrContent);
+
+        try {
+            $this->generarDocx(
+                documento: $documento,
+                destino: $tempPath,
+                qr: $qrTemp,
+                urlVerificacion: $urlVerificacion,
+                contenidoHtml: $separado['html'],
+                flotantes: $separado['flotantes'],
+            );
+        } finally {
+            @unlink($qrTemp);
+        }
+
+        return $tempPath;
+    }
+
     private function resolverMembreteRuta(Documento $documento): ?string
     {
         $datosEmpresa = $documento->datosEmpresa();
@@ -213,8 +309,22 @@ final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocume
             $seccion->addText('CITE: '.$documento->cite, ['bold' => true, 'color' => '293D61'], ['alignment' => $alineacionWord]);
             $seccion->addTextBreak();
         }
+        $patronSalto = '/<div[^>]*class="[^"]*(?:page-break|sdaya-page-break)[^"]*"[^>]*>.*?<\/div>|<div[^>]*style="[^"]*page-break-(?:after|before):\s*always[^"]*"[^>]*>.*?<\/div>/si';
+        $bloques = preg_split($patronSalto, $contenidoHtml);
 
-        Html::addHtml($seccion, $this->html->paraWord($contenidoHtml), false, false);
+        if ($bloques !== false && count($bloques) > 1) {
+            foreach ($bloques as $indice => $bloque) {
+                $bloqueProcesado = $this->html->paraWord($bloque);
+                if (trim($bloqueProcesado) !== '') {
+                    Html::addHtml($seccion, $bloqueProcesado, false, false);
+                }
+                if ($indice < count($bloques) - 1) {
+                    $seccion->addPageBreak();
+                }
+            }
+        } else {
+            Html::addHtml($seccion, $this->html->paraWord($contenidoHtml), false, false);
+        }
 
         foreach ($flotantes as $flotante) {
             $this->agregarImagenFlotante($seccion, $flotante);

@@ -171,8 +171,8 @@
         box-shadow: inset 0 4px 0 #73b7c7, 0 16px 42px rgb(23 41 68 / 6%);
     }
 
-    .document-content, .ql-editor { @apply text-[0.98rem] leading-7 text-slate-700; }
-    .document-content p, .ql-editor p { @apply mb-4; }
+    .document-content, .ql-editor { @apply text-[0.98rem] leading-snug text-slate-700; }
+    .document-content p, .ql-editor p { @apply mb-1.5; }
     .document-content ul, .ql-editor ul { @apply mb-4 list-disc pl-7; }
     .document-content ol, .ql-editor ol { @apply mb-4 list-decimal pl-7; }
     .document-content a, .ql-editor a { @apply font-semibold text-sdaya-700 underline decoration-sdaya-300 underline-offset-2; }
@@ -387,7 +387,7 @@
     background-color: #ffffff !important;
     font-family: 'Montserrat', Arial, sans-serif !important;
     font-size: 11pt !important;
-    line-height: 1.6 !important;
+    line-height: 1.25 !important;
     color: #1e293b !important;
     border-bottom-left-radius: 0.75rem !important;
     border-bottom-right-radius: 0.75rem !important;
@@ -395,21 +395,55 @@
 }
 
 .ck-content p {
-    margin-bottom: 0.75rem;
+    margin-top: 0 !important;
+    margin-bottom: 0.2rem !important;
+    line-height: 1.25 !important;
 }
 
 .ck-content table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 1rem 0;
+    border-collapse: collapse !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+    margin: 0.75rem 0 !important;
+    word-break: break-word !important;
 }
 
 .ck-content table td, .ck-content table th {
-    border: 1px solid #cbd5e1;
-    padding: 0.5rem 0.75rem;
+    border: 1px solid #cbd5e1 !important;
+    padding: 0.4rem 0.6rem !important;
+    vertical-align: top !important;
+    word-break: break-word !important;
 }
 
 .ck-content table th {
+    background-color: #f1f5f9 !important;
+    font-weight: 700 !important;
+}
+
+.document-content p {
+    margin-top: 0;
+    margin-bottom: 0.2rem;
+    line-height: 1.25;
+}
+
+.document-content table {
+    border-collapse: collapse;
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto;
+    margin: 0.75rem 0;
+    word-break: break-word;
+}
+
+.document-content table td, .document-content table th {
+    border: 1px solid #cbd5e1;
+    padding: 0.4rem 0.6rem;
+    vertical-align: top;
+    word-break: break-word;
+}
+
+.document-content table th {
     background-color: #f1f5f9;
     font-weight: 700;
 }
@@ -418,6 +452,64 @@
     border: 0;
     border-top: 1px solid #94a3b8;
     margin: 1.25rem 0;
+}
+
+/* Saltos de Página Visuales (División de hojas estilo Microsoft Word) */
+.ck-content .page-break,
+.document-content .page-break,
+.ck-content .sdaya-page-break,
+.document-content .sdaya-page-break {
+    position: relative;
+    clear: both;
+    display: block;
+    margin: 2.25rem -3rem;
+    padding: 1rem 0;
+    background: #f8fafc;
+    border-top: 2px dashed #94a3b8;
+    border-bottom: 2px dashed #94a3b8;
+    text-align: center;
+    user-select: none;
+}
+
+.document-content .page-break,
+.document-content .sdaya-page-break {
+    margin: 2.25rem -2rem;
+}
+
+.ck-content .page-break::after,
+.document-content .page-break::after,
+.ck-content .sdaya-page-break::after,
+.document-content .sdaya-page-break::after {
+    content: '📄 SALTO DE PÁGINA — PÁGINA SIGUIENTE';
+    display: inline-block;
+    padding: 0.35rem 0.9rem;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 9999px;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
+}
+
+.ck-content .page-break span,
+.document-content .page-break span {
+    display: none !important;
+}
+
+.document-sheet-wrapper {
+    background-color: #f1f5f9;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.document-sheet-wrapper > div {
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
 }
 
 /* Widgets Institucionales SDAYA */

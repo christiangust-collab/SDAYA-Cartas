@@ -72,26 +72,72 @@ final class DocxImportadorService
      *
      * @throws RuntimeException si el archivo no existe o no es un DOCX válido.
      */
-    public function importar(string $rutaArchivo): string
+    public function importar(string $rutaArchivo, bool $omitirFirma = false): string
+    {
+        $res = $this->importarConMetadatos($rutaArchivo, $omitirFirma);
+
+        return $res['html'];
+    }
+
+    /**
+     * Importa un archivo DOCX y devuelve tanto el HTML procesado como los metadatos detectados
+     * (destinatario, asunto/referencia, fecha, lugar, firmante).
+     *
+     * @return array{
+     *     html: string,
+     *     html_completo: string,
+     *     destinatario: ?string,
+     *     asunto: ?string,
+     *     lugar: ?string,
+     *     fecha: ?string,
+     *     firmante_detectado: ?string,
+     *     cargo_detectado: ?string,
+     *     tiene_firma_detectada: bool
+     * }
+     */
+    public function importarConMetadatos(string $rutaArchivo, bool $omitirFirma = true): array
     {
         if (! file_exists($rutaArchivo)) {
             throw new RuntimeException('El archivo DOCX especificado no existe.');
         }
 
         try {
-            $html = $this->importarViaOpenXml($rutaArchivo);
+            return $this->importarViaOpenXmlConMetadatos($rutaArchivo, $omitirFirma);
         } catch (Throwable) {
             // Respaldo mediante PHPWord si el ZIP no cuenta con la estructura estándar
             $html = $this->importarViaPhpWord($rutaArchivo);
-        }
+            $limpio = $this->sanitizer->limpiar($this->postProcesarHtml($html));
 
-        return $this->sanitizer->limpiar($html);
+            return [
+                'html' => $limpio,
+                'html_completo' => $limpio,
+                'destinatario' => null,
+                'asunto' => null,
+                'lugar' => null,
+                'fecha' => null,
+                'firmante_detectado' => null,
+                'cargo_detectado' => null,
+                'tiene_firma_detectada' => false,
+            ];
+        }
     }
 
     /**
      * Motor principal de extracción directa OpenXML para máxima fidelidad.
+     *
+     * @return array{
+     *     html: string,
+     *     html_completo: string,
+     *     destinatario: ?string,
+     *     asunto: ?string,
+     *     lugar: ?string,
+     *     fecha: ?string,
+     *     firmante_detectado: ?string,
+     *     cargo_detectado: ?string,
+     *     tiene_firma_detectada: bool
+     * }
      */
-    private function importarViaOpenXml(string $rutaArchivo): string
+    private function importarViaOpenXmlConMetadatos(string $rutaArchivo, bool $omitirFirma): array
     {
         $zip = new ZipArchive();
         if ($zip->open($rutaArchivo) !== true) {
@@ -123,37 +169,189 @@ final class DocxImportadorService
 
             $body = $xpath->query('//w:body')->item(0);
             if (! $body instanceof DOMElement) {
-                return '';
+                return [
+                    'html' => '',
+                    'html_completo' => '',
+                    'destinatario' => null,
+                    'asunto' => null,
+                    'lugar' => null,
+                    'fecha' => null,
+                    'firmante_detectado' => null,
+                    'cargo_detectado' => null,
+                    'tiene_firma_detectada' => false,
+                ];
             }
 
-            return $this->procesarNodosContenido($body, $xpath, $relaciones, $numbering, $zip);
+            $elementos = [];
+            foreach ($body->childNodes as $nodo) {
+                if ($nodo instanceof DOMElement && $nodo->localName !== 'sectPr') {
+                    $elementos[] = $nodo;
+                }
+            }
+
+            $metas = $this->detectarMetadatos($elementos);
+            $infoFirma = $this->detectarFirma($elementos, $xpath);
+
+            // Generar HTML completo
+            $htmlCompletoCrudo = $this->procesarListaNodos($elementos, $xpath, $relaciones, $numbering, $zip);
+            $htmlCompleto = $this->sanitizer->limpiar($this->postProcesarHtml($htmlCompletoCrudo));
+
+            // Generar HTML sin firma si se solicita
+            if ($omitirFirma && $infoFirma['indice_inicio'] !== null) {
+                $elementosSinFirma = array_slice($elementos, 0, $infoFirma['indice_inicio']);
+                $htmlLimpioCrudo = $this->procesarListaNodos($elementosSinFirma, $xpath, $relaciones, $numbering, $zip);
+                $htmlLimpio = $this->sanitizer->limpiar($this->postProcesarHtml($htmlLimpioCrudo));
+            } else {
+                $htmlLimpio = $htmlCompleto;
+            }
+
+            return [
+                'html' => $htmlLimpio,
+                'html_completo' => $htmlCompleto,
+                'destinatario' => $metas['destinatario'],
+                'asunto' => $metas['asunto'],
+                'lugar' => $metas['lugar'],
+                'fecha' => $metas['fecha'],
+                'firmante_detectado' => $infoFirma['firmante'],
+                'cargo_detectado' => $infoFirma['cargo'],
+                'tiene_firma_detectada' => $infoFirma['indice_inicio'] !== null,
+            ];
         } finally {
             $zip->close();
         }
     }
 
     /**
-     * Procesa los nodos dentro de un contenedor (body o celda de tabla), agrupando
-     * párrafos consecutivos de listas en etiquetas <ul> / <ol> coherentes.
+     * Detecta metadatos institucionales en la cabecera del documento (destinatario, referencia, fecha, lugar).
      *
+     * @param list<DOMElement> $elementos
+     * @return array{destinatario: ?string, asunto: ?string, lugar: ?string, fecha: ?string}
+     */
+    private function detectarMetadatos(array $elementos): array
+    {
+        $destinatario = null;
+        $asunto = null;
+        $lugar = null;
+        $fecha = null;
+
+        $max = min(12, count($elementos));
+        for ($i = 0; $i < $max; $i++) {
+            $txt = trim($elementos[$i]->textContent);
+            if ($txt === '') {
+                continue;
+            }
+
+            // Lugar y fecha: ej. "La Paz, 15 de julio de 2026"
+            if ($fecha === null && preg_match('/^(?:([A-Za-zÁ-ú\s]+),\s*)?(\d{1,2})\s+de\s+([a-zA-Zá-úÁ-Ú]+)\s+de\s+(\d{4})/u', $txt, $m)) {
+                $lugar = ! empty($m[1]) ? trim($m[1]) : null;
+                $meses = [
+                    'enero' => '01', 'febrero' => '02', 'marzo' => '03', 'abril' => '04',
+                    'mayo' => '05', 'junio' => '06', 'julio' => '07', 'agosto' => '08',
+                    'septiembre' => '09', 'octubre' => '10', 'noviembre' => '11', 'diciembre' => '12',
+                ];
+                $mesNom = mb_strtolower(trim($m[3]));
+                $mesNum = $meses[$mesNom] ?? '01';
+                $dia = str_pad($m[2], 2, '0', STR_PAD_LEFT);
+                $fecha = "{$m[4]}-{$mesNum}-{$dia}";
+            }
+
+            // Destinatario: "Señores:" -> siguiente párrafo o resto del texto
+            if ($destinatario === null && preg_match('/^(?:señor(?:es|a)?|sres\.?|a\s*:|para\s*:)\s*(.*)$/ui', $txt, $m)) {
+                $rest = trim($m[1]);
+                if ($rest !== '' && mb_strlen($rest) > 3) {
+                    $destinatario = $rest;
+                } elseif (isset($elementos[$i + 1])) {
+                    $nextTxt = trim($elementos[$i + 1]->textContent);
+                    if ($nextTxt !== '' && ! preg_match('/^(?:presente|ref|cite)/i', $nextTxt)) {
+                        $destinatario = $nextTxt;
+                    }
+                }
+            }
+
+            // Referencia / Asunto: "REF.: PROPUESTA..."
+            if ($asunto === null && preg_match('/^(?:ref(?:\.|erencia)?|asunto|objeto)\s*[:.-]\s*(.+)$/ui', $txt, $m)) {
+                $asunto = trim($m[1]);
+            }
+        }
+
+        return compact('destinatario', 'asunto', 'lugar', 'fecha');
+    }
+
+    /**
+     * Detecta el bloque de pie de firma al final del documento.
+     *
+     * @param list<DOMElement> $elementos
+     * @return array{indice_inicio: ?int, firmante: ?string, cargo: ?string}
+     */
+    private function detectarFirma(array $elementos, DOMXPath $xpath): array
+    {
+        $indiceFirma = null;
+        $firmante = null;
+        $cargo = null;
+
+        $total = count($elementos);
+        for ($i = $total - 1; $i >= max(0, $total - 8); $i--) {
+            $elem = $elementos[$i];
+            $txt = trim($elem->textContent);
+
+            $esFirma = false;
+            if ($elem->localName === 'tbl') {
+                if (preg_match('/(?:gerente|director|coordinador|administrador|presidente|representante|m[oó]vil|email|celular)/ui', $txt)) {
+                    $esFirma = true;
+                }
+            } elseif ($elem->localName === 'p') {
+                if (preg_match('/(?:c\.?c\.?\s*archivo|gerente\s+general|director\s+ejecutivo)/ui', $txt)) {
+                    $esFirma = true;
+                }
+            }
+
+            if ($esFirma) {
+                $indiceFirma = $i;
+                if (preg_match('/(?:MSc\.?|Lic\.?|Ing\.?|Dr\.?|Sr\.?)\s*([A-Za-zÁ-ú\s]+?)(?:GERENTE|DIRECTOR|\n|\r|$)/u', $txt, $m)) {
+                    $firmante = trim($m[1]);
+                }
+                if (preg_match('/(GERENTE\s+GENERAL|DIRECTOR\s+EJECUTIVO|COORDINADOR\s+[A-ZÁ-Ú\s]+)/u', $txt, $m)) {
+                    $cargo = trim($m[1]);
+                }
+            }
+        }
+
+        // Si se detectó firma, retroceder para incluir imágenes de rúbrica y párrafos vacíos de separación
+        if ($indiceFirma !== null) {
+            while ($indiceFirma > 0) {
+                $prev = $elementos[$indiceFirma - 1];
+                $prevTxt = trim($prev->textContent);
+                $hasDrawing = $xpath->query('.//w:drawing', $prev)->length > 0;
+
+                if ($prevTxt === '' || $hasDrawing) {
+                    $indiceFirma--;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        return ['indice_inicio' => $indiceFirma, 'firmante' => $firmante, 'cargo' => $cargo];
+    }
+
+    /**
+     * Procesa una lista de elementos conservando la agrupación de listas y tablas.
+     *
+     * @param list<DOMElement> $elementos
      * @param array<string, string> $relaciones
      * @param array<string, string> $numbering
      */
-    private function procesarNodosContenido(
-        DOMElement $contenedor,
+    private function procesarListaNodos(
+        array $elementos,
         DOMXPath $xpath,
         array $relaciones,
         array $numbering,
         ZipArchive $zip,
     ): string {
         $html = '';
-        $listaActiva = null; // ['tipo' => 'ul'|'ol', 'nivel' => int]
+        $listaActiva = null;
 
-        foreach ($contenedor->childNodes as $nodo) {
-            if (! $nodo instanceof DOMElement) {
-                continue;
-            }
-
+        foreach ($elementos as $nodo) {
             if ($nodo->localName === 'p') {
                 $infoLista = $this->obtenerInfoLista($nodo, $xpath, $numbering);
 
@@ -167,23 +365,17 @@ final class DocxImportadorService
                         $html .= '<'.$tipoLista.'>';
                     }
 
-                    $contenidoItem = $this->procesarContenidoParrafo($nodo, $xpath, $relaciones, $zip);
-                    $sangriaStyle = $infoLista['nivel'] > 0 ? ' style="margin-left: '.($infoLista['nivel'] * 20).'px;"' : '';
-                    $html .= '<li'.$sangriaStyle.'>'.($contenidoItem !== '' ? $contenidoItem : '&nbsp;').'</li>';
+                    $html .= $this->procesarItemLista($nodo, $xpath, $relaciones, $zip, $infoLista['nivel'], $tipoLista);
 
                     continue;
                 }
 
-                // Si no es lista, cerramos cualquier lista pendiente
                 if ($listaActiva !== null) {
                     $html .= '</'.$listaActiva['tipo'].'>';
                     $listaActiva = null;
                 }
 
-                $parrafoHtml = $this->procesarParrafo($nodo, $xpath, $relaciones, $zip);
-                if ($parrafoHtml !== '') {
-                    $html .= $parrafoHtml;
-                }
+                $html .= $this->procesarParrafo($nodo, $xpath, $relaciones, $zip);
 
                 continue;
             }
@@ -214,10 +406,25 @@ final class DocxImportadorService
      */
     private function procesarParrafo(DOMElement $p, DOMXPath $xpath, array $relaciones, ZipArchive $zip): string
     {
+        // Si el párrafo contiene únicamente un dibujo/imagen, emitirlo directamente como bloque
+        $drawings = $xpath->query('w:r/w:drawing | w:r/w:pict', $p);
+        $texto = trim($p->textContent);
+        if ($drawings->length === 1 && $texto === '') {
+            $imgHtml = $this->procesarDrawing($drawings->item(0), $xpath, $relaciones, $zip, true);
+            if ($imgHtml !== '') {
+                return $imgHtml;
+            }
+        }
+
+        // Si contiene saltos de página (soft o hard), dividir el párrafo coherentemente
+        $hasPageBreak = $xpath->query('.//w:lastRenderedPageBreak | .//w:br[@w:type="page"]', $p)->length > 0;
+        if ($hasPageBreak) {
+            return $this->procesarParrafoConSalto($p, $xpath, $relaciones, $zip);
+        }
+
         $contenido = $this->procesarContenidoParrafo($p, $xpath, $relaciones, $zip);
         $estilos = $this->extraerEstilosParrafo($p, $xpath);
 
-        // Detectar si es un encabezado por estilo (Heading 1, Heading 2, etc.)
         $tag = 'p';
         $pStyle = $xpath->query('w:pPr/w:pStyle/@w:val', $p)->item(0)?->nodeValue ?? '';
         if (preg_match('/^(?:heading|titulo)\s*1$/i', $pStyle) === 1) {
@@ -228,7 +435,6 @@ final class DocxImportadorService
             $tag = 'h3';
         }
 
-        // Si el párrafo está vacío y no contiene imágenes, pero existe, respetamos un salto visual limpio
         if ($contenido === '') {
             $attrEstilo = $estilos !== [] ? ' style="'.$this->formatearEstilos($estilos).'"' : '';
 
@@ -238,6 +444,113 @@ final class DocxImportadorService
         $attrEstilo = $estilos !== [] ? ' style="'.$this->formatearEstilos($estilos).'"' : '';
 
         return '<'.$tag.$attrEstilo.'>'.$contenido.'</'.$tag.'>';
+    }
+
+    /**
+     * Procesa un párrafo que contiene un salto de página, emitiendo el indicador de página visual.
+     *
+     * @param array<string, string> $relaciones
+     */
+    private function procesarParrafoConSalto(DOMElement $p, DOMXPath $xpath, array $relaciones, ZipArchive $zip): string
+    {
+        $saltoHtml = '<div class="page-break" style="page-break-after:always;"><span style="display:none;">&nbsp;</span></div>';
+        $estilos = $this->extraerEstilosParrafo($p, $xpath);
+        $attrEstilo = $estilos !== [] ? ' style="'.$this->formatearEstilos($estilos).'"' : '';
+
+        $segmentoAntes = '';
+        $segmentoDespues = '';
+        $encontrado = false;
+
+        foreach ($p->childNodes as $nodo) {
+            if (! $nodo instanceof DOMElement) {
+                continue;
+            }
+
+            $tieneSalto = $xpath->query('.//w:lastRenderedPageBreak | .//w:br[@w:type="page"]', $nodo)->length > 0;
+
+            if ($tieneSalto) {
+                $encontrado = true;
+                if ($nodo->localName === 'r') {
+                    $segmentoDespues .= $this->procesarRun($nodo, $xpath, $relaciones, $zip);
+                }
+            } else {
+                $fragmento = '';
+                if ($nodo->localName === 'r') {
+                    $fragmento = $this->procesarRun($nodo, $xpath, $relaciones, $zip);
+                } elseif ($nodo->localName === 'hyperlink') {
+                    $fragmento = $this->procesarHyperlink($nodo, $xpath, $relaciones, $zip);
+                } elseif ($nodo->localName === 'drawing' || $nodo->localName === 'pict') {
+                    $fragmento = $this->procesarDrawing($nodo, $xpath, $relaciones, $zip, false);
+                }
+
+                if (! $encontrado) {
+                    $segmentoAntes .= $fragmento;
+                } else {
+                    $segmentoDespues .= $fragmento;
+                }
+            }
+        }
+
+        $out = '';
+        if (trim($segmentoAntes) !== '') {
+            $out .= '<p'.$attrEstilo.'>'.$segmentoAntes.'</p>';
+        }
+        $out .= $saltoHtml;
+        if (trim($segmentoDespues) !== '') {
+            $out .= '<p'.$attrEstilo.'>'.$segmentoDespues.'</p>';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Procesa un elemento de lista <li> manejando saltos de página internos.
+     *
+     * @param array<string, string> $relaciones
+     */
+    private function procesarItemLista(DOMElement $p, DOMXPath $xpath, array $relaciones, ZipArchive $zip, int $nivel, string $tipoLista = 'ul'): string
+    {
+        $hasPageBreak = $xpath->query('.//w:lastRenderedPageBreak | .//w:br[@w:type="page"]', $p)->length > 0;
+        $saltoHtml = '<div class="page-break" style="page-break-after:always;"><span style="display:none;">&nbsp;</span></div>';
+
+        if ($hasPageBreak) {
+            $segmentoAntes = '';
+            $segmentoDespues = '';
+            $encontrado = false;
+
+            foreach ($p->childNodes as $nodo) {
+                if (! $nodo instanceof DOMElement) {
+                    continue;
+                }
+
+                $tieneSalto = $xpath->query('.//w:lastRenderedPageBreak | .//w:br[@w:type="page"]', $nodo)->length > 0;
+                if ($tieneSalto) {
+                    $encontrado = true;
+                    if ($nodo->localName === 'r') {
+                        $segmentoDespues .= $this->procesarRun($nodo, $xpath, $relaciones, $zip);
+                    }
+                } else {
+                    $fragmento = $nodo->localName === 'r' ? $this->procesarRun($nodo, $xpath, $relaciones, $zip) : '';
+                    if (! $encontrado) {
+                        $segmentoAntes .= $fragmento;
+                    } else {
+                        $segmentoDespues .= $fragmento;
+                    }
+                }
+            }
+
+            $sangriaStyle = $nivel > 0 ? ' style="margin-left: '.($nivel * 20).'px;"' : '';
+
+            $parteAntes = trim($segmentoAntes) !== '' ? '<li'.$sangriaStyle.'>'.$segmentoAntes.'</li>' : '';
+            $parteDespues = trim($segmentoDespues) !== '' ? '<li'.$sangriaStyle.'>'.$segmentoDespues.'</li>' : '';
+
+            return $parteAntes.'</'.$tipoLista.'>'.$saltoHtml.'<'.$tipoLista.'>'.$parteDespues;
+        }
+
+        $contenidoItem = $this->procesarContenidoParrafo($p, $xpath, $relaciones, $zip);
+        $sangriaStyle = $nivel > 0 ? ' style="margin-left: '.($nivel * 20).'px;"' : '';
+
+        return '<li'.$sangriaStyle.'>'.($contenidoItem !== '' ? $contenidoItem : '&nbsp;').'</li>';
     }
 
     /**
@@ -261,33 +574,43 @@ final class DocxImportadorService
             }
 
             if ($nodo->localName === 'hyperlink') {
-                $rId = $nodo->getAttributeNS(self::R_NS, 'id') ?: $nodo->getAttribute('r:id');
-                $url = $relaciones[$rId] ?? '';
-                $textoEnlace = '';
-
-                foreach ($nodo->childNodes as $hijoLink) {
-                    if ($hijoLink instanceof DOMElement && $hijoLink->localName === 'r') {
-                        $textoEnlace .= $this->procesarRun($hijoLink, $xpath, $relaciones, $zip);
-                    }
-                }
-
-                if ($url !== '' && $textoEnlace !== '') {
-                    $html .= '<a href="'.htmlspecialchars($url, ENT_QUOTES | ENT_HTML5, 'UTF-8').'" target="_blank" rel="noopener noreferrer">'.$textoEnlace.'</a>';
-                } else {
-                    $html .= $textoEnlace;
-                }
+                $html .= $this->procesarHyperlink($nodo, $xpath, $relaciones, $zip);
 
                 continue;
             }
 
             if ($nodo->localName === 'drawing' || $nodo->localName === 'pict') {
-                $html .= $this->procesarDrawing($nodo, $xpath, $relaciones, $zip);
+                $html .= $this->procesarDrawing($nodo, $xpath, $relaciones, $zip, false);
 
                 continue;
             }
         }
 
         return $html;
+    }
+
+    /**
+     * Procesa un enlace hipervínculo.
+     *
+     * @param array<string, string> $relaciones
+     */
+    private function procesarHyperlink(DOMElement $nodo, DOMXPath $xpath, array $relaciones, ZipArchive $zip): string
+    {
+        $rId = $nodo->getAttributeNS(self::R_NS, 'id') ?: $nodo->getAttribute('r:id');
+        $url = $relaciones[$rId] ?? '';
+        $textoEnlace = '';
+
+        foreach ($nodo->childNodes as $hijoLink) {
+            if ($hijoLink instanceof DOMElement && $hijoLink->localName === 'r') {
+                $textoEnlace .= $this->procesarRun($hijoLink, $xpath, $relaciones, $zip);
+            }
+        }
+
+        if ($url !== '' && $textoEnlace !== '') {
+            return '<a href="'.htmlspecialchars($url, ENT_QUOTES | ENT_HTML5, 'UTF-8').'" target="_blank" rel="noopener noreferrer">'.$textoEnlace.'</a>';
+        }
+
+        return $textoEnlace;
     }
 
     /**
@@ -307,11 +630,13 @@ final class DocxImportadorService
             if ($hijo->localName === 't') {
                 $contenido .= htmlspecialchars($hijo->nodeValue ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
             } elseif ($hijo->localName === 'br' || $hijo->localName === 'cr') {
-                $contenido .= '<br>';
+                if ($hijo->getAttributeNS(self::W_NS, 'type') !== 'page' && $hijo->getAttribute('w:type') !== 'page') {
+                    $contenido .= '<br>';
+                }
             } elseif ($hijo->localName === 'tab') {
                 $contenido .= ' &emsp; ';
             } elseif ($hijo->localName === 'drawing' || $hijo->localName === 'pict') {
-                $contenido .= $this->procesarDrawing($hijo, $xpath, $relaciones, $zip);
+                $contenido .= $this->procesarDrawing($hijo, $xpath, $relaciones, $zip, false);
             }
         }
 
@@ -376,7 +701,7 @@ final class DocxImportadorService
     }
 
     /**
-     * Procesa una tabla <w:tbl> completa conservando filas, columnas y estilos de celda.
+     * Procesa una tabla <w:tbl> completa conservando filas, columnas, anchos y estilos de celda.
      *
      * @param array<string, string> $relaciones
      * @param array<string, string> $numbering
@@ -388,11 +713,23 @@ final class DocxImportadorService
         array $numbering,
         ZipArchive $zip,
     ): string {
+        $tblBordersVal = $xpath->query('w:tblPr/w:tblBorders/w:top/@w:val', $tbl)->item(0)?->nodeValue;
+        $esSinBorde = ($tblBordersVal === 'none' || $tblBordersVal === 'nil');
+
         $html = '<figure class="table"><table style="width: 100%; border-collapse: collapse;"><tbody>';
 
         foreach ($tbl->childNodes as $fila) {
             if (! $fila instanceof DOMElement || $fila->localName !== 'tr') {
                 continue;
+            }
+
+            // Suma de dxa en la fila para calcular anchos porcentuales proporcionales
+            $totalDxaFila = 0;
+            foreach ($fila->childNodes as $c) {
+                if ($c instanceof DOMElement && $c->localName === 'tc') {
+                    $w = (int) ($xpath->query('w:tcPr/w:tcW/@w:w', $c)->item(0)?->nodeValue ?? 0);
+                    $totalDxaFila += $w;
+                }
             }
 
             $html .= '<tr>';
@@ -404,10 +741,17 @@ final class DocxImportadorService
 
                 $attrs = [];
                 $estilosCelda = [
-                    'border' => '1px solid #cbd5e1',
+                    'border' => $esSinBorde ? 'none' : '1px solid #cbd5e1',
                     'padding' => '6px 10px',
                     'vertical-align' => 'top',
                 ];
+
+                // Width porcentual si está definido en dxa
+                $celdaDxa = (int) ($xpath->query('w:tcPr/w:tcW/@w:w', $celda)->item(0)?->nodeValue ?? 0);
+                if ($celdaDxa > 0 && $totalDxaFila > 0) {
+                    $pct = round(($celdaDxa / $totalDxaFila) * 100, 1);
+                    $estilosCelda['width'] = $pct.'%';
+                }
 
                 // Column span (gridSpan)
                 $gridSpan = $xpath->query('w:tcPr/w:gridSpan/@w:val', $celda)->item(0)?->nodeValue;
@@ -429,7 +773,14 @@ final class DocxImportadorService
                 }
 
                 $attrs[] = 'style="'.$this->formatearEstilos($estilosCelda).'"';
-                $contenidoCelda = $this->procesarNodosContenido($celda, $xpath, $relaciones, $numbering, $zip);
+
+                $hijosCelda = [];
+                foreach ($celda->childNodes as $h) {
+                    if ($h instanceof DOMElement) {
+                        $hijosCelda[] = $h;
+                    }
+                }
+                $contenidoCelda = $this->procesarListaNodos($hijosCelda, $xpath, $relaciones, $numbering, $zip);
 
                 $html .= '<td '.implode(' ', $attrs).'>'.($contenidoCelda !== '' ? $contenidoCelda : '&nbsp;').'</td>';
             }
@@ -447,8 +798,13 @@ final class DocxImportadorService
      *
      * @param array<string, string> $relaciones
      */
-    private function procesarDrawing(DOMElement $drawing, DOMXPath $xpath, array $relaciones, ZipArchive $zip): string
-    {
+    private function procesarDrawing(
+        DOMElement $drawing,
+        DOMXPath $xpath,
+        array $relaciones,
+        ZipArchive $zip,
+        bool $esBloque = false,
+    ): string {
         $rId = '';
 
         // Buscar nodo a:blip (OpenXML moderno)
@@ -515,7 +871,11 @@ final class DocxImportadorService
 
         $dataUri = 'data:'.$mime.';base64,'.base64_encode($binario);
 
-        return '<figure class="image"><img src="'.$dataUri.'" alt="Imagen importada"'.$dimAttr.'></figure>';
+        if ($esBloque) {
+            return '<figure class="image"><img src="'.$dataUri.'" alt="Imagen importada"'.$dimAttr.'></figure>';
+        }
+
+        return '<img src="'.$dataUri.'" alt="Imagen importada"'.$dimAttr.'>';
     }
 
     /**
@@ -540,10 +900,13 @@ final class DocxImportadorService
         }
 
         // Sangría izquierda (w:ind/@w:left en twips: 1 pt = 20 twips)
-        $indLeft = $xpath->query('w:pPr/w:ind/@w:left', $p)->item(0)?->nodeValue;
-        if ($indLeft !== null && is_numeric($indLeft) && (int) $indLeft > 0) {
-            $pts = round((int) $indLeft / 20, 1);
-            $estilos['margin-left'] = $pts.'pt';
+        // Se aplica únicamente si no está alineado a la derecha para no empujar el texto fuera
+        if ($jc !== 'right' && $jc !== 'end') {
+            $indLeft = $xpath->query('w:pPr/w:ind/@w:left', $p)->item(0)?->nodeValue;
+            if ($indLeft !== null && is_numeric($indLeft) && (int) $indLeft > 0) {
+                $pts = round((int) $indLeft / 20, 1);
+                $estilos['margin-left'] = $pts.'pt';
+            }
         }
 
         return $estilos;
@@ -729,6 +1092,34 @@ final class DocxImportadorService
         if ($strike) $contenido = '<s>'.$contenido.'</s>';
 
         return $contenido;
+    }
+
+    /**
+     * Post-procesa el HTML para consolidar spans contiguos idénticos y normalizar saltos de línea.
+     */
+    private function postProcesarHtml(string $html): string
+    {
+        // Consolidar spans contiguos con estilo idéntico
+        $html = preg_replace_callback(
+            '/<span style="([^"]+)">([^<]+)<\/span>\s*<span style="\1">([^<]+)<\/span>/u',
+            static fn (array $m): string => '<span style="'.$m[1].'">'.$m[2].$m[3].'</span>',
+            $html,
+        ) ?? $html;
+
+        // Repetir una vez para spans de 3+ contiguos
+        $html = preg_replace_callback(
+            '/<span style="([^"]+)">([^<]+)<\/span>\s*<span style="\1">([^<]+)<\/span>/u',
+            static fn (array $m): string => '<span style="'.$m[1].'">'.$m[2].$m[3].'</span>',
+            $html,
+        ) ?? $html;
+
+        // Colapsar múltiples párrafos vacíos consecutivos (>1) a uno solo
+        $html = preg_replace('/(?:<p[^>]*><br\s*\/?><\/p>\s*){2,}/ui', '<p><br></p>', $html) ?? $html;
+
+        // Eliminar párrafos vacíos al inicio del documento
+        $html = preg_replace('/^(?:\s*<p[^>]*><br\s*\/?><\/p>\s*)+/ui', '', $html) ?? $html;
+
+        return trim($html);
     }
 
     /**

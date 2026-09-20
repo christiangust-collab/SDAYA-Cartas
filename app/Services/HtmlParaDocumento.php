@@ -64,6 +64,20 @@ final class HtmlParaDocumento
             $padre->removeChild($fig);
         }
 
+        // Envolver <li> huérfanos dentro de <ul> para evitar fallos de PHPWord
+        $lis = [];
+        foreach ($raiz->getElementsByTagName('li') as $li) {
+            $lis[] = $li;
+        }
+        foreach ($lis as $li) {
+            $padre = $li->parentNode;
+            if ($padre && ! in_array(mb_strtolower($padre->nodeName), ['ul', 'ol'], true)) {
+                $ul = $documento->createElement('ul');
+                $padre->insertBefore($ul, $li);
+                $ul->appendChild($li);
+            }
+        }
+
         foreach ($this->elementos($raiz) as $elemento) {
             $clases = $elemento->getAttribute('class');
 

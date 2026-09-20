@@ -9,10 +9,7 @@
         @endcan
         @can('emitir', $documento)
             @if ($documento->estaBorrador())
-                <form method="POST" action="{{ route('documentos.emitir', $documento) }}" class="inline-flex">
-                    @csrf
-                    <button type="submit" class="btn-primary" data-confirm="Al finalizar la carta se reservará el correlativo oficial y el documento quedará bloqueado. ¿Deseas emitirlo?"><x-icon name="send" size="17" /> Finalizar carta</button>
-                </form>
+                <button type="button" class="btn-primary" onclick="document.getElementById('modal-confirmar-emision').showModal()"><x-icon name="send" size="17" /> Finalizar carta</button>
             @endif
         @endcan
     </x-slot:headerActions>
@@ -36,10 +33,7 @@
                             <a href="{{ route('documentos.edit', $documento) }}" class="btn-secondary w-full text-sm sm:w-auto"><x-icon name="edit" size="16" /> Volver a editar</a>
                         @endcan
                         @can('emitir', $documento)
-                            <form method="POST" action="{{ route('documentos.emitir', $documento) }}" class="w-full sm:w-auto">
-                                @csrf
-                                <button type="submit" class="btn-primary w-full text-sm sm:w-auto" data-confirm="Al finalizar la carta se reservará el correlativo oficial y el documento quedará bloqueado. ¿Deseas emitirlo?"><x-icon name="send" size="16" /> Finalizar carta</button>
-                            </form>
+                            <button type="button" class="btn-primary w-full text-sm sm:w-auto" onclick="document.getElementById('modal-confirmar-emision').showModal()"><x-icon name="send" size="16" /> Finalizar carta</button>
                         @endcan
                     </div>
                 </section>
@@ -108,7 +102,7 @@
                         <div class="mt-12 pt-6 border-t border-slate-200/70 {{ $alineacionPieFirma }}" data-pie-firma>
                             @if ($firmaDataUri)
                                 <div class="-mb-3">
-                                    <img src="{{ $firmaDataUri }}" alt="Rúbrica de {{ $pieFirma['nombre'] }}" class="h-20 sm:h-24 max-w-64 object-contain inline-block">
+                                    <img src="{{ $firmaDataUri }}" alt="Rúbrica de {{ $pieFirma['nombre'] }}" class="h-24 sm:h-28 max-w-72 object-contain inline-block">
                                 </div>
                             @endif
                             <p class="font-bold text-slate-900 text-sm sm:text-base leading-tight">{{ $pieFirma['nombre'] }}</p>
@@ -167,19 +161,37 @@
                         <p class="mt-2 text-sm leading-6 text-slate-600">Revisa la carta antes de finalizar o realiza ajustes si es necesario.</p>
                     </div>
                     <div class="space-y-3 p-5">
+                        @can('emitir', $documento)
+                            <button type="button" class="btn-primary w-full" onclick="document.getElementById('modal-confirmar-emision').showModal()">
+                                <x-icon name="send" size="18" /> Finalizar carta
+                            </button>
+                        @endcan
                         @can('update', $documento)
                             <a href="{{ route('documentos.edit', $documento) }}" class="btn-secondary w-full"><x-icon name="edit" size="18" /> Volver a editar</a>
                         @endcan
-                        @can('emitir', $documento)
-                            <form method="POST" action="{{ route('documentos.emitir', $documento) }}">
-                                @csrf
-                                <button type="submit" class="btn-primary w-full" data-confirm="Se asignará el correlativo definitivo y el documento quedará bloqueado. ¿Deseas finalizar la carta?"><x-icon name="send" size="18" /> Finalizar carta</button>
-                            </form>
-                        @endcan
+
+                        <div class="pt-3 border-t border-slate-100">
+                            <p class="text-[10px] font-black tracking-wider text-slate-500 uppercase mb-2">Revisión previa del borrador</p>
+                            <div class="space-y-1.5">
+                                <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}?ver=1" target="_blank" rel="noopener" class="btn-ghost w-full justify-start text-xs font-bold text-slate-700 hover:text-slate-950">
+                                    <x-icon name="eye" size="16" class="text-slate-500" /> Ver borrador en navegador
+                                </a>
+                                <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}" class="btn-ghost w-full justify-start text-xs font-bold text-slate-700 hover:text-slate-950">
+                                    <x-icon name="download" size="16" class="text-slate-500" /> Descargar borrador en PDF
+                                </a>
+                                <a href="{{ route('documentos.descargar', [$documento, 'docx']) }}" class="btn-ghost w-full justify-start text-xs font-bold text-slate-700 hover:text-slate-950">
+                                    <x-icon name="file-text" size="16" class="text-slate-500" /> Descargar borrador en Word (.docx)
+                                </a>
+                                <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}?preimpreso=1&ver=1" target="_blank" rel="noopener" class="btn-ghost w-full justify-start text-xs font-bold text-amber-900 bg-amber-50/60 hover:bg-amber-100/70">
+                                    <x-icon name="printer" size="16" class="text-amber-700" /> Probar en hoja membretada física
+                                </a>
+                            </div>
+                        </div>
+
                         <a href="{{ route('documentos.index') }}" class="btn-ghost w-full"><x-icon name="arrow-left" size="17" /> Volver al listado</a>
                     </div>
                     <div class="border-t border-slate-100 bg-slate-50/80 p-4">
-                        <p class="flex items-start gap-2 text-xs leading-5 text-slate-500"><x-icon name="info" size="15" class="mt-0.5 shrink-0 text-slate-400" /> Al pulsar "Finalizar carta" se asignará el CITE correlativo y se generarán los archivos oficiales Word, PDF y QR.</p>
+                        <p class="flex items-start gap-2 text-xs leading-5 text-slate-500"><x-icon name="info" size="15" class="mt-0.5 shrink-0 text-slate-400" /> Al pulsar "Finalizar carta" se asignará el CITE correlativo oficial y se generarán los archivos sellados con firma y QR.</p>
                     </div>
                 </section>
             @endif
@@ -202,9 +214,12 @@
                         <div><h2 id="archivos-titulo" class="font-black text-slate-900">Archivos oficiales</h2><p class="mt-0.5 text-xs text-slate-500">Versiones generadas al emitir.</p></div>
                     </div>
                     <div class="mt-5 space-y-2.5">
-                        <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}" class="btn-primary w-full"><x-icon name="download" size="18" /> Descargar PDF</a>
+                        <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}" class="btn-primary w-full"><x-icon name="download" size="18" /> Descargar PDF oficial</a>
                         <a href="{{ route('verificar.pdf', $documento->hash_verificacion) }}" target="_blank" rel="noopener" class="btn-secondary w-full"><x-icon name="eye" size="18" /> Ver PDF en navegador</a>
                         <a href="{{ route('documentos.descargar', [$documento, 'docx']) }}" class="btn-ghost w-full"><x-icon name="file-text" size="18" /> Descargar Word (.docx)</a>
+                        <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}?preimpreso=1" class="btn-ghost w-full border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                            <x-icon name="printer" size="16" class="text-slate-500" /> PDF para papel preimpreso (sin logo)
+                        </a>
                     </div>
                     @if ($documento->emitido_at)
                         <p class="mt-5 border-t border-slate-200 pt-4 text-xs leading-5 text-slate-500">Emitido el {{ $documento->emitido_at->format('d/m/Y H:i') }} por <strong class="text-slate-700">{{ $documento->emisor?->name ?? 'usuario no disponible' }}</strong>.</p>
@@ -229,5 +244,63 @@
             @endcan
         </aside>
     </div>
+
+    @if ($documento->estaBorrador())
+        <dialog id="modal-confirmar-emision" class="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 sm:p-7 shadow-2xl backdrop:bg-slate-900/60">
+            <div class="flex items-start gap-4">
+                <span class="grid size-12 shrink-0 place-items-center rounded-2xl bg-sdaya-50 text-sdaya-600 ring-1 ring-sdaya-200">
+                    <x-icon name="shield-check" size="26" />
+                </span>
+                <div>
+                    <h2 class="text-lg font-black text-slate-900 leading-tight">Confirmar emisión de carta oficial</h2>
+                    <p class="mt-1 text-xs text-slate-500 leading-relaxed">Verifica los datos institucionales antes de finalizar. Una vez emitida, la carta quedará sellada digitalmente y no podrá ser editada.</p>
+                </div>
+            </div>
+
+            <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50/90 p-4 space-y-2.5 text-xs">
+                <div class="flex justify-between border-b border-slate-200/80 pb-2">
+                    <span class="font-bold text-slate-500">Institución / Empresa:</span>
+                    <span class="font-extrabold text-slate-900 text-right">{{ $documento->datosEmpresa()['nombre'] }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200/80 pb-2">
+                    <span class="font-bold text-slate-500">Clasificación:</span>
+                    <span class="font-mono font-black text-slate-900">{{ $documento->area->codigo }} · {{ $documento->tipo->codigo }} (Gestión {{ $documento->anio }})</span>
+                </div>
+                @if (filled($documento->destinatario))
+                    <div class="flex justify-between border-b border-slate-200/80 pb-2">
+                        <span class="font-bold text-slate-500">Destinatario:</span>
+                        <span class="font-bold text-slate-900 text-right max-w-xs">{{ $documento->destinatario }}</span>
+                    </div>
+                @endif
+                @if (filled($documento->asunto))
+                    <div class="flex justify-between border-b border-slate-200/80 pb-2">
+                        <span class="font-bold text-slate-500">Referencia:</span>
+                        <span class="font-bold text-slate-900 text-right max-w-xs">{{ $documento->asunto }}</span>
+                    </div>
+                @endif
+                <div class="flex justify-between pt-1">
+                    <span class="font-bold text-slate-500">Correlativo CITE:</span>
+                    <span class="font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded text-[11px]">Se reservará el número correlativo oficial</span>
+                </div>
+            </div>
+
+            <div class="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs leading-5 text-amber-950 flex items-start gap-2.5">
+                <x-icon name="alert-circle" size="16" class="shrink-0 text-amber-700 mt-0.5" />
+                <span><strong>Aviso:</strong> Se generarán de inmediato los archivos definitivos en PDF y Word, junto al código QR con firma de verificación pública.</span>
+            </div>
+
+            <div class="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                <button type="button" class="btn-ghost w-full sm:w-auto" onclick="document.getElementById('modal-confirmar-emision').close()">
+                    Volver a revisar
+                </button>
+                <form method="POST" action="{{ route('documentos.emitir', $documento) }}" class="w-full sm:w-auto">
+                    @csrf
+                    <button type="submit" class="btn-primary w-full sm:w-auto">
+                        <x-icon name="send" size="17" /> Confirmar y Emitir Carta
+                    </button>
+                </form>
+            </div>
+        </dialog>
+    @endif
 </x-layouts.app>
 

@@ -43,7 +43,7 @@ final class HtmlSanitizer
      */
     private const ESTILOS_PERMITIDOS = [
         'font-family' => '/^[A-Za-z0-9 ,.\'"-]{1,120}$/',
-        'font-size' => '/^\d{1,3}(\.\d{1,2})?(pt|px)$/',
+        'font-size' => '/^\d{1,3}(\.\d{1,2})?(pt|px|em|rem)$/',
         'color' => '/^(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,25}|rgb\([0-9 ,.%]{1,40}\)|rgba\([0-9 ,.%]{1,60}\))$/',
         'background-color' => '/^(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,25}|rgb\([0-9 ,.%]{1,40}\)|rgba\([0-9 ,.%]{1,60}\))$/',
         'font-weight' => '/^(normal|bold|\d{3})$/',
@@ -51,7 +51,34 @@ final class HtmlSanitizer
         'text-decoration' => '/^(none|underline|line-through|overline)(\s+(none|underline|line-through|overline)){0,2}$/',
         'text-align' => '/^(left|right|center|justify)$/',
         'text-indent' => '/^-?\d{1,4}(\.\d{1,2})?(pt|px|em)?$/',
-        'margin-left' => '/^-?\d{1,4}(\.\d{1,2})?(pt|px|em|%)?$/',
+        'margin-left' => '/^-?\d{1,4}(\.\d{1,2})?(pt|px|em|%|rem)?$/',
+        'margin-right' => '/^-?\d{1,4}(\.\d{1,2})?(pt|px|em|%|rem)?$/',
+        'margin-top' => '/^-?\d{1,4}(\.\d{1,2})?(pt|px|em|%|rem)?$/',
+        'margin-bottom' => '/^-?\d{1,4}(\.\d{1,2})?(pt|px|em|%|rem)?$/',
+        'margin' => '/^-?\d{1,3}(\.\d{1,2})?(pt|px|em|rem|%|auto)(\s+-?\d{1,3}(\.\d{1,2})?(pt|px|em|rem|%|auto)){0,3}$/',
+        'width' => '/^\d{1,4}(\.\d{1,2})?(pt|px|em|%|rem)$/',
+        'height' => '/^\d{1,4}(\.\d{1,2})?(pt|px|em|%|rem)$/',
+        'min-width' => '/^\d{1,4}(\.\d{1,2})?(pt|px|em|%|rem)$/',
+        'max-width' => '/^\d{1,4}(\.\d{1,2})?(pt|px|em|%|rem)$/',
+        'border' => '/^(none|\d{1,2}px\s+(solid|dashed|dotted)\s+(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,25}|rgb\([0-9 ,.%]{1,40}\)|rgba\([0-9 ,.%]{1,60}\)))$/',
+        'border-top' => '/^(none|\d{1,2}px\s+(solid|dashed|dotted)\s+(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,25}|rgb\([0-9 ,.%]{1,40}\)|rgba\([0-9 ,.%]{1,60}\)))$/',
+        'border-bottom' => '/^(none|\d{1,2}px\s+(solid|dashed|dotted)\s+(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,25}|rgb\([0-9 ,.%]{1,40}\)|rgba\([0-9 ,.%]{1,60}\)))$/',
+        'border-left' => '/^(none|\d{1,2}px\s+(solid|dashed|dotted)\s+(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,25}|rgb\([0-9 ,.%]{1,40}\)|rgba\([0-9 ,.%]{1,60}\)))$/',
+        'border-right' => '/^(none|\d{1,2}px\s+(solid|dashed|dotted)\s+(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,25}|rgb\([0-9 ,.%]{1,40}\)|rgba\([0-9 ,.%]{1,60}\)))$/',
+        'border-collapse' => '/^(collapse|separate)$/',
+        'border-spacing' => '/^\d{1,3}(\.\d{1,2})?(pt|px|em)$/',
+        'padding' => '/^\d{1,3}(\.\d{1,2})?(pt|px|em|rem)(\s+\d{1,3}(\.\d{1,2})?(pt|px|em|rem)){0,3}$/',
+        'padding-top' => '/^\d{1,3}(\.\d{1,2})?(pt|px|em|rem)$/',
+        'padding-bottom' => '/^\d{1,3}(\.\d{1,2})?(pt|px|em|rem)$/',
+        'padding-left' => '/^\d{1,3}(\.\d{1,2})?(pt|px|em|rem)$/',
+        'padding-right' => '/^\d{1,3}(\.\d{1,2})?(pt|px|em|rem)$/',
+        'vertical-align' => '/^(top|middle|bottom|baseline)$/',
+        'line-height' => '/^(\d{1,2}(\.\d{1,2})?|\d{1,3}%|\d{1,3}px|\d{1,3}pt)$/',
+        'page-break-after' => '/^(always|auto|avoid|left|right)$/',
+        'page-break-before' => '/^(always|auto|avoid|left|right)$/',
+        'page-break-inside' => '/^(auto|avoid)$/',
+        'break-after' => '/^(page|auto|avoid)$/',
+        'display' => '/^(none|block|inline|inline-block|table|table-row|table-cell|flex)$/',
     ];
 
     /** Fragmentos prohibidos dentro de cualquier valor CSS aceptado. */
@@ -167,7 +194,7 @@ final class HtmlSanitizer
         }
 
         $esFlotante = $elemento->tagName === 'img' && in_array('ql-flotante', $clases, true);
-        $estilos = $this->estilosPermitidos($atributos['style'] ?? '', $esFlotante);
+        $estilos = $this->estilosPermitidos($atributos['style'] ?? '', $esFlotante, $elemento->tagName);
 
         if ($estilos !== '') {
             $elemento->setAttribute('style', $estilos);
@@ -213,7 +240,7 @@ final class HtmlSanitizer
         }
 
         if (in_array($elemento->tagName, ['div', 'p', 'span', 'figure', 'section'], true)) {
-            foreach (['data-sdaya-meta', 'data-sdaya-qr', 'data-sdaya-widget', 'data-align'] as $dataAttr) {
+            foreach (['data-sdaya-meta', 'data-sdaya-qr', 'data-sdaya-widget', 'data-align', 'data-page-break', 'data-sdaya-page-break'] as $dataAttr) {
                 if (isset($atributos[$dataAttr])) {
                     $val = preg_replace('/[^\w-]/', '', (string) $atributos[$dataAttr]);
                     if ($val !== '') {
@@ -277,9 +304,10 @@ final class HtmlSanitizer
      * seguros. Las imágenes flotantes admiten además las propiedades de
      * posicionamiento (position/left/top) con valores numéricos en porcentaje.
      */
-    private function estilosPermitidos(string $estilo, bool $flotante = false): string
+    private function estilosPermitidos(string $estilo, bool $flotante = false, string $tagName = ''): string
     {
         $limpios = [];
+        $esElementoTexto = in_array(mb_strtolower($tagName), ['span', 'strong', 'em', 'b', 'i', 'u', 's', 'sub', 'sup', 'small', 'a'], true);
 
         foreach (explode(';', $estilo) as $declaracion) {
             $partes = explode(':', $declaracion, 2);
@@ -292,6 +320,10 @@ final class HtmlSanitizer
             $valor = trim($partes[1]);
 
             if ($valor === '' || preg_match(self::CSS_PROHIBIDO, $valor) === 1) {
+                continue;
+            }
+
+            if ($esElementoTexto && in_array($propiedad, ['width', 'height', 'min-width', 'max-width'], true)) {
                 continue;
             }
 
@@ -318,9 +350,9 @@ final class HtmlSanitizer
                 .'|ql-font-(montserrat|arial|times|courier|gothic|georgia)'
                 .'|ql-size-(10|11|12|14|16|18|20|24)'
                 .'|ql-flotante'
-                .'|sdaya-(meta|qr|align-left|align-center|align-right|widget|meta-fecha|meta-cite|meta-line|meta-date|qr-image|qr-label|qr-placeholder|chip|cite-chip)'
+                .'|sdaya-(meta|qr|align-left|align-center|align-right|widget|meta-fecha|meta-cite|meta-line|meta-date|qr-image|qr-label|qr-placeholder|chip|cite-chip|page-break)'
                 .'|image|image-style-(align-left|align-center|align-right|block|inline|side|wrap-left|wrap-right|break-text)'
-                .'|image_resized|table|text-(tiny|small|big|huge)|text-align-(left|center|right|justify))$/',
+                .'|image_resized|table|table-bordered|table-striped|ck-table-resized|ck-widget|page-break|ck-page-break|text-(tiny|small|big|huge)|text-align-(left|center|right|justify))$/',
                 $clase,
             ) === 1,
         ));
