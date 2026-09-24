@@ -22,7 +22,7 @@ final class HtmlSanitizer
     private const ALLOWED_TAGS = [
         'p', 'div', 'figure', 'figcaption', 'br', 'hr', 'strong', 'b', 'em', 'i', 'u', 's',
         'ol', 'ul', 'li', 'blockquote', 'h1', 'h2', 'h3',
-        'span', 'a', 'img',
+        'span', 'a', 'img', 'sub', 'sup', 'mark',
         'table', 'thead', 'tbody', 'tr', 'td', 'th',
     ];
 
@@ -240,7 +240,13 @@ final class HtmlSanitizer
         }
 
         if (in_array($elemento->tagName, ['div', 'p', 'span', 'figure', 'section'], true)) {
-            foreach (['data-sdaya-meta', 'data-sdaya-qr', 'data-sdaya-widget', 'data-align', 'data-page-break', 'data-sdaya-page-break'] as $dataAttr) {
+            if (isset($atributos['data-sdaya-margenes'])) {
+                $val = preg_replace('/[^0-9.,]/', '', (string) $atributos['data-sdaya-margenes']);
+                if ($val !== '') {
+                    $elemento->setAttribute('data-sdaya-margenes', $val);
+                }
+            }
+            foreach (['data-sdaya-meta', 'data-sdaya-qr', 'data-sdaya-widget', 'data-align', 'data-page-break', 'data-sdaya-page-break', 'data-sdaya-margen'] as $dataAttr) {
                 if (isset($atributos[$dataAttr])) {
                     $val = preg_replace('/[^\w-]/', '', (string) $atributos[$dataAttr]);
                     if ($val !== '') {
@@ -350,9 +356,9 @@ final class HtmlSanitizer
                 .'|ql-font-(montserrat|arial|times|courier|gothic|georgia)'
                 .'|ql-size-(10|11|12|14|16|18|20|24)'
                 .'|ql-flotante'
-                .'|sdaya-(meta|qr|align-left|align-center|align-right|widget|meta-fecha|meta-cite|meta-line|meta-date|qr-image|qr-label|qr-placeholder|chip|cite-chip|page-break)'
+                .'|sdaya-(meta|qr|align-left|align-center|align-right|widget|meta-fecha|meta-cite|meta-line|meta-date|qr-image|qr-label|qr-placeholder|chip|cite-chip|page-break|margen-institucional|margen-moderado|margen-estrecho|margen-estandar)'
                 .'|image|image-style-(align-left|align-center|align-right|block|inline|side|wrap-left|wrap-right|break-text)'
-                .'|image_resized|table|table-bordered|table-striped|ck-table-resized|ck-widget|page-break|ck-page-break|text-(tiny|small|big|huge)|text-align-(left|center|right|justify))$/',
+                .'|image_resized|table|table-bordered|table-striped|ck-table-resized|ck-widget|page-break|ck-page-break|marker-(yellow|green|pink|blue)|pen-(red|green)|text-(tiny|small|big|huge)|text-align-(left|center|right|justify))$/',
                 $clase,
             ) === 1,
         ));

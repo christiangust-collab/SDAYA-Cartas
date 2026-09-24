@@ -274,6 +274,9 @@ final class DocxImportadorService
             }
         }
 
+        $destinatario = $destinatario !== null ? mb_strtoupper(trim($destinatario), 'UTF-8') : null;
+        $asunto = $asunto !== null ? mb_strtoupper(trim($asunto), 'UTF-8') : null;
+
         return compact('destinatario', 'asunto', 'lugar', 'fecha');
     }
 

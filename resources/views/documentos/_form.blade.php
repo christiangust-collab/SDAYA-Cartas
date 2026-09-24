@@ -9,6 +9,11 @@
     $contenido = old('contenido', $esEdicion ? $documento->contenido : '');
     $alineacion = old('alineacion_encabezado', $esEdicion ? ($documento->alineacion_encabezado ?? 'right') : 'right');
     $alineacionPieFirma = old('alineacion_pie_firma', $esEdicion ? ($documento->alineacion_pie_firma ?? $documento->alineacion_encabezado ?? 'right') : 'right');
+    $margenesActuales = $esEdicion ? $documento->margenes() : ['top' => 3.0, 'right' => 2.5, 'bottom' => 3.0, 'left' => 3.0];
+    $margenSup = old('margen_superior', $margenesActuales['top']);
+    $margenDer = old('margen_derecho', $margenesActuales['right']);
+    $margenInf = old('margen_inferior', $margenesActuales['bottom']);
+    $margenIzq = old('margen_izquierdo', $margenesActuales['left']);
     $firmanteSeleccionado = old('firmante_id', $esEdicion ? ($documento->firmante_id ?? auth()->id()) : auth()->id());
     $firmantes = $firmantes ?? \App\Models\User::query()->whereIn('role', [\App\Enums\RolUsuario::ADMIN, \App\Enums\RolUsuario::EDITOR])->orderBy('name')->get();
 @endphp
@@ -84,14 +89,14 @@
 
                 <div class="md:col-span-2">
                     <label for="destinatario" class="form-label">Destinatario <span aria-hidden="true" class="text-red-600">*</span></label>
-                    <input id="destinatario" name="destinatario" type="text" value="{{ $destinatario }}" class="form-input" maxlength="250" placeholder="Ej: Ing. Carlos Mamani — Gerente General EPSAS" required aria-describedby="destinatario-ayuda destinatario-error">
+                    <input id="destinatario" name="destinatario" type="text" value="{{ $destinatario }}" class="form-input uppercase" maxlength="250" placeholder="EJ: ING. CARLOS MAMANI — GERENTE GENERAL EPSAS" required aria-describedby="destinatario-ayuda destinatario-error" oninput="this.value = this.value.toUpperCase()">
                     <p id="destinatario-ayuda" class="field-note"><x-icon name="user" size="14" /> Persona, cargo o institución a quien va dirigida la carta o nota (clave para futuras búsquedas).</p>
                     <x-input-error id="destinatario-error" :messages="$errors->get('destinatario')" />
                 </div>
 
                 <div class="md:col-span-2">
                     <label for="asunto" class="form-label">Referencia / Asunto <span aria-hidden="true" class="text-red-600">*</span></label>
-                    <input id="asunto" name="asunto" type="text" value="{{ $asunto }}" class="form-input" maxlength="250" placeholder="Ej: Solicitud de inspección técnica red matriz" required aria-describedby="asunto-ayuda asunto-error">
+                    <input id="asunto" name="asunto" type="text" value="{{ $asunto }}" class="form-input uppercase" maxlength="250" placeholder="EJ: SOLICITUD DE INSPECCIÓN TÉCNICA RED MATRIZ" required aria-describedby="asunto-ayuda asunto-error" oninput="this.value = this.value.toUpperCase()">
                     <p id="asunto-ayuda" class="field-note"><x-icon name="file-text" size="14" /> Motivo formal de la carta o nota (REF), usado para el archivo y filtrado rápido.</p>
                     <x-input-error id="asunto-error" :messages="$errors->get('asunto')" />
                 </div>
@@ -212,14 +217,25 @@
             <div class="mt-6" data-editor-wrapper
                 data-importar-url="{{ route('documentos.importar-docx') }}"
                 data-csrf="{{ csrf_token() }}"
+                data-margen-sup="{{ $margenSup }}"
+                data-margen-der="{{ $margenDer }}"
+                data-margen-inf="{{ $margenInf }}"
+                data-margen-izq="{{ $margenIzq }}"
             >
-                <div class="mb-3 flex items-center justify-between gap-3">
+                <input type="hidden" name="margen_superior" id="margen_superior" value="{{ $margenSup }}">
+                <input type="hidden" name="margen_derecho" id="margen_derecho" value="{{ $margenDer }}">
+                <input type="hidden" name="margen_inferior" id="margen_inferior" value="{{ $margenInf }}">
+                <input type="hidden" name="margen_izquierdo" id="margen_izquierdo" value="{{ $margenIzq }}">
+                <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <label for="contenido" class="form-label mb-0">Cuerpo de la carta <span aria-hidden="true" class="text-red-600">*</span></label>
                     <div class="flex items-center gap-2">
+                        <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-all shadow-2xs cursor-pointer" data-abrir-margenes title="Personalizar márgenes de página estilo Word">
+                            <x-icon name="sliders" size="13" class="text-sdaya-600" />
+                            <span data-margen-texto>{{ ($margenSup == 3.0 && $margenDer == 2.5 && $margenInf == 3.0 && $margenIzq == 3.0) ? 'Márgenes: Por defecto (3 cm / 2,5 cm)' : "Márgenes: Sup {$margenSup} cm · Der {$margenDer} cm · Inf {$margenInf} cm · Izq {$margenIzq} cm" }}</span>
+                        </button>
                         <button type="button" class="btn-ghost inline-flex items-center gap-1.5 text-xs" data-importar-docx aria-label="Importar documento Word">
                             <x-icon name="upload" size="14" /> Importar DOCX
                         </button>
-                        <span class="hidden text-[10px] font-bold tracking-wide text-slate-400 uppercase sm:inline">Editor Profesional Word</span>
                     </div>
                 </div>
                 <div class="document-sheet-wrapper">
@@ -230,6 +246,76 @@
                 <textarea id="contenido" name="contenido" class="hidden" required aria-describedby="contenido-ayuda contenido-error" data-editor-textarea>{{ $contenido }}</textarea>
                 <x-input-error id="contenido-error" :messages="$errors->get('contenido')" />
             </div>
+
+            {{-- Modal Configurar página / Márgenes (Estilo Microsoft Word) --}}
+            <dialog id="modal-margenes-pagina" class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-slate-900/50">
+                <div class="border-b border-slate-100 bg-slate-50/80 px-6 py-4 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-base font-black text-sdaya-950 flex items-center gap-2">
+                            <x-icon name="sliders" size="18" class="text-sdaya-600" /> Configurar página
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Ajusta los márgenes en centímetros (estilo Microsoft Word) para la pantalla, DOCX y PDF.</p>
+                    </div>
+                    <button type="button" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors" data-cerrar-margenes aria-label="Cerrar modal">
+                        <x-icon name="x" size="18" />
+                    </button>
+                </div>
+
+                <div class="p-6">
+                    <fieldset class="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4">
+                        <legend class="text-xs font-black tracking-wide text-sdaya-900 uppercase px-1.5 bg-white rounded border border-slate-200">
+                            Márgenes de página (cm)
+                        </legend>
+
+                        <div class="grid grid-cols-2 gap-4 mt-2">
+                            <div>
+                                <label for="input-modal-margen-sup" class="block text-xs font-bold text-slate-700 mb-1">Superior:</label>
+                                <div class="relative">
+                                    <input type="number" id="input-modal-margen-sup" step="0.1" min="0" max="10.0" value="{{ $margenSup }}"
+                                        class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-semibold text-slate-800 shadow-2xs focus:border-sdaya-500 focus:ring-2 focus:ring-sdaya-200">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-400">cm</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="input-modal-margen-izq" class="block text-xs font-bold text-slate-700 mb-1">Izquierdo:</label>
+                                <div class="relative">
+                                    <input type="number" id="input-modal-margen-izq" step="0.1" min="0" max="10.0" value="{{ $margenIzq }}"
+                                        class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-semibold text-slate-800 shadow-2xs focus:border-sdaya-500 focus:ring-2 focus:ring-sdaya-200">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-400">cm</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="input-modal-margen-inf" class="block text-xs font-bold text-slate-700 mb-1">Inferior:</label>
+                                <div class="relative">
+                                    <input type="number" id="input-modal-margen-inf" step="0.1" min="0" max="10.0" value="{{ $margenInf }}"
+                                        class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-semibold text-slate-800 shadow-2xs focus:border-sdaya-500 focus:ring-2 focus:ring-sdaya-200">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-400">cm</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="input-modal-margen-der" class="block text-xs font-bold text-slate-700 mb-1">Derecho:</label>
+                                <div class="relative">
+                                    <input type="number" id="input-modal-margen-der" step="0.1" min="0" max="10.0" value="{{ $margenDer }}"
+                                        class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-semibold text-slate-800 shadow-2xs focus:border-sdaya-500 focus:ring-2 focus:ring-sdaya-200">
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-400">cm</span>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <div class="border-t border-slate-100 bg-slate-50/80 px-6 py-4 flex items-center justify-between">
+                    <button type="button" id="btn-restablecer-margenes-inst" class="text-xs font-bold text-sdaya-700 hover:text-sdaya-900 underline underline-offset-2">
+                        Restablecer por defecto (3 cm / 2,5 cm)
+                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn-ghost text-xs px-3 py-1.5" data-cerrar-margenes>Cancelar</button>
+                        <button type="button" id="btn-aplicar-margenes" class="btn-primary text-xs px-4 py-1.5">
+                            <x-icon name="check" size="15" /> Aceptar
+                        </button>
+                    </div>
+                </div>
+            </dialog>
 
             {{-- Modal importar DOCX --}}
             <dialog id="modal-importar-docx" class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl backdrop:bg-slate-900/50">

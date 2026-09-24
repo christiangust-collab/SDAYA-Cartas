@@ -130,7 +130,19 @@ final readonly class GuardarDocumentoService
             'logo_documentos' => $empresa->logo_documentos ? (string) $empresa->logo_documentos : null,
         ] : null;
 
-        return [
+        $top = is_numeric($datos['margen_superior'] ?? null) ? (float) $datos['margen_superior'] : 3.0;
+        $right = is_numeric($datos['margen_derecho'] ?? null) ? (float) $datos['margen_derecho'] : 2.5;
+        $bottom = is_numeric($datos['margen_inferior'] ?? null) ? (float) $datos['margen_inferior'] : 3.0;
+        $left = is_numeric($datos['margen_izquierdo'] ?? null) ? (float) $datos['margen_izquierdo'] : 3.0;
+
+        $top = max(0.0, min(10.0, round($top, 1)));
+        $right = max(0.0, min(10.0, round($right, 1)));
+        $bottom = max(0.0, min(10.0, round($bottom, 1)));
+        $left = max(0.0, min(10.0, round($left, 1)));
+
+        $cadenaMargenes = "{$top},{$right},{$bottom},{$left}";
+
+        $payload = [
             'area_id' => $area->getKey(),
             'tipo_id' => $tipo->getKey(),
             'empresa_id' => $empresaId,
@@ -151,6 +163,15 @@ final readonly class GuardarDocumentoService
             'contenido' => $contenido,
             'estado' => EstadoDocumento::BORRADOR,
         ];
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('documentos', 'margenes')) {
+            $payload['margenes'] = $cadenaMargenes;
+        } else {
+            $limpio = preg_replace('/<span\s+data-sdaya-margenes="[^"]*"\s*(?:style="[^"]*")?\s*><\/span>/si', '', (string) $contenido);
+            $payload['contenido'] = '<span data-sdaya-margenes="'.$cadenaMargenes.'" style="display:none"></span>'.$limpio;
+        }
+
+        return $payload;
     }
 
     /**

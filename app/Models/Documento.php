@@ -27,6 +27,7 @@ final class Documento extends Model
         'lugar',
         'alineacion_encabezado',
         'alineacion_pie_firma',
+        'margenes',
         'asunto',
         'destinatario',
         'firmante_id',
@@ -255,5 +256,45 @@ final class Documento extends Model
     public function estaAnulado(): bool
     {
         return $this->estado === EstadoDocumento::ANULADO;
+    }
+
+    /**
+     * Devuelve los márgenes de página en centímetros [top, right, bottom, left].
+     * Por defecto retorna los valores institucionales (3.0 cm, 2.5 cm, 3.0 cm, 3.0 cm).
+     *
+     * @return array{top: float, right: float, bottom: float, left: float}
+     */
+    public function margenes(): array
+    {
+        if (isset($this->attributes['margenes']) && filled($this->attributes['margenes'])) {
+            $partes = explode(',', (string) $this->attributes['margenes']);
+            if (count($partes) === 4) {
+                return [
+                    'top' => (float) $partes[0],
+                    'right' => (float) $partes[1],
+                    'bottom' => (float) $partes[2],
+                    'left' => (float) $partes[3],
+                ];
+            }
+        }
+
+        if (preg_match('/data-sdaya-margenes="([0-9.,]+)"/', (string) ($this->contenido ?? ''), $matches)) {
+            $partes = explode(',', $matches[1]);
+            if (count($partes) === 4) {
+                return [
+                    'top' => (float) $partes[0],
+                    'right' => (float) $partes[1],
+                    'bottom' => (float) $partes[2],
+                    'left' => (float) $partes[3],
+                ];
+            }
+        }
+
+        return [
+            'top' => 3.0,
+            'right' => 2.5,
+            'bottom' => 3.0,
+            'left' => 3.0,
+        ];
     }
 }

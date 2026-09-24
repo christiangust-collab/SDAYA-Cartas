@@ -23,10 +23,10 @@ use Throwable;
 
 final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocumento
 {
-    /** Área útil de la página carta en puntos (tras márgenes del DOCX). */
-    private const ANCHO_UTIL_PT = 487.0;
+    /** Área útil de la página carta en puntos (tras márgenes del DOCX: Sup 3cm, Inf 3cm, Izq 3cm, Der 2.5cm). */
+    private const ANCHO_UTIL_PT = 456.1;
 
-    private const ALTO_UTIL_PT = 582.0;
+    private const ALTO_UTIL_PT = 621.9;
 
     public function __construct(
         private HtmlParaDocumento $html,
@@ -279,13 +279,19 @@ final readonly class GeneradorArchivosLaravel implements GeneradorArchivosDocume
 
         $phpWord->addTitleStyle(1, ['bold' => true, 'size' => 13, 'color' => '293D61']);
 
+        $margenes = $documento->margenes();
+        $marginTop = (int) round($margenes['top'] * 567);
+        $marginRight = (int) round($margenes['right'] * 567);
+        $marginBottom = (int) round($margenes['bottom'] * 567);
+        $marginLeft = (int) round($margenes['left'] * 567);
+
         $seccion = $phpWord->addSection([
             'pageSizeW' => 12240,
             'pageSizeH' => 15840,
-            'marginTop' => 2300,
-            'marginRight' => 1250,
-            'marginBottom' => 1900,
-            'marginLeft' => 1250,
+            'marginTop' => $marginTop,
+            'marginRight' => $marginRight,
+            'marginBottom' => $marginBottom,
+            'marginLeft' => $marginLeft,
             'headerHeight' => 0,
             'footerHeight' => 0,
         ]);

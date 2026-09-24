@@ -5,12 +5,16 @@ import {
     Autoformat,
     BlockQuote,
     Bold,
+    ButtonView,
     Essentials,
+    FindAndReplace,
     FontBackgroundColor,
     FontColor,
     FontFamily,
     FontSize,
+    GeneralHtmlSupport,
     Heading,
+    Highlight,
     HorizontalLine,
     Image,
     ImageCaption,
@@ -24,10 +28,16 @@ import {
     Link,
     List,
     ListProperties,
+    PageBreak,
     Paragraph,
     PasteFromOffice,
     RemoveFormat,
+    SelectAll,
+    SpecialCharacters,
+    SpecialCharactersEssentials,
     Strikethrough,
+    Subscript,
+    Superscript,
     Table,
     TableCaption,
     TableCellProperties,
@@ -36,11 +46,13 @@ import {
     TableToolbar,
     Underline,
     Undo,
+    createDropdown,
+    addListToDropdown,
+    ViewModel,
+    Collection,
 } from 'ckeditor5';
-import { PageBreak } from '@ckeditor/ckeditor5-page-break';
-import { GeneralHtmlSupport } from '@ckeditor/ckeditor5-html-support';
+import translations from 'ckeditor5/translations/es.js';
 import 'ckeditor5/ckeditor5.css';
-import '@ckeditor/ckeditor5-page-break/dist/index.css';
 
 document.documentElement.classList.add('js');
 
@@ -290,6 +302,240 @@ function SDAYAUploadAdapterPlugin(editor) {
 }
 
 /**
+ * Plugin de Márgenes de Página Institucionales para CKEditor 5.
+ * Abre la ventana modal estilo Microsoft Word para personalizar los 4 márgenes en cm.
+ */
+const ICONO_MARGENES = `<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 2.5A1.5 1.5 0 0 0 2.5 4v12A1.5 1.5 0 0 0 4 17.5h12a1.5 1.5 0 0 0 1.5-1.5V4A1.5 1.5 0 0 0 16 2.5H4zm0 1h12a.5.5 0 0 1 .5.5v12a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z" fill="currentColor"/>
+    <path d="M6 5.5h8v9H6v-9zm1 1v7h6v-7H7z" fill="currentColor" opacity="0.6"/>
+</svg>`;
+
+function PageMarginsPlugin(editor) {
+    editor.ui.componentFactory.add('pageMargins', (locale) => {
+        const view = new ButtonView(locale);
+
+        view.set({
+            label: 'Configurar márgenes (estilo Word)',
+            icon: ICONO_MARGENES,
+            tooltip: true,
+        });
+
+        view.on('execute', () => {
+            const modal = document.getElementById('modal-margenes-pagina');
+            if (modal && typeof modal.showModal === 'function') {
+                if (typeof window.sdayaSyncModalMargenes === 'function') {
+                    window.sdayaSyncModalMargenes();
+                }
+                modal.showModal();
+            }
+        });
+
+        return view;
+    });
+}
+
+function setupModalMargenes(editor, wrapper) {
+    const modal = document.getElementById('modal-margenes-pagina');
+    if (!modal) return;
+
+    const inputSup = document.getElementById('input-modal-margen-sup');
+    const inputDer = document.getElementById('input-modal-margen-der');
+    const inputInf = document.getElementById('input-modal-margen-inf');
+    const inputIzq = document.getElementById('input-modal-margen-izq');
+
+    const hiddenSup = document.getElementById('margen_superior');
+    const hiddenDer = document.getElementById('margen_derecho');
+    const hiddenInf = document.getElementById('margen_inferior');
+    const hiddenIzq = document.getElementById('margen_izquierdo');
+
+    const badgeTexto = document.querySelector('[data-margen-texto]');
+
+    const parseVal = (v, def) => {
+        if (v === '' || v === null || v === undefined) return def;
+        const n = parseFloat(String(v).replace(',', '.'));
+        return isNaN(n) ? def : Math.max(0.0, Math.min(10.0, Number(n.toFixed(1))));
+    };
+
+    const aplicarMargenesVisuales = (s, d, i, z) => {
+        // 1. Variables CSS en el contenedor padre wrapper
+        if (wrapper) {
+            wrapper.style.setProperty('--ck-margin-top', `${s}cm`);
+            wrapper.style.setProperty('--ck-margin-right', `${d}cm`);
+            wrapper.style.setProperty('--ck-margin-bottom', `${i}cm`);
+            wrapper.style.setProperty('--ck-margin-left', `${z}cm`);
+        }
+
+        // 2. Elemento editable inline en el DOM
+        const editableEl = editor?.ui?.view?.editable?.element;
+        if (editableEl) {
+            editableEl.style.setProperty('--ck-margin-top', `${s}cm`);
+            editableEl.style.setProperty('--ck-margin-right', `${d}cm`);
+            editableEl.style.setProperty('--ck-margin-bottom', `${i}cm`);
+            editableEl.style.setProperty('--ck-margin-left', `${z}cm`);
+
+            editableEl.style.setProperty('padding-top', `${s}cm`, 'important');
+            editableEl.style.setProperty('padding-right', `${d}cm`, 'important');
+            editableEl.style.setProperty('padding-bottom', `${i}cm`, 'important');
+            editableEl.style.setProperty('padding-left', `${z}cm`, 'important');
+        }
+
+        // 3. Actualizar la vista virtual de CKEditor (editing.view)
+        if (editor?.editing?.view) {
+            editor.editing.view.change((writer) => {
+                const root = editor.editing.view.document.getRoot();
+                if (root) {
+                    writer.setStyle('padding-top', `${s}cm`, root);
+                    writer.setStyle('padding-right', `${d}cm`, root);
+                    writer.setStyle('padding-bottom', `${i}cm`, root);
+                    writer.setStyle('padding-left', `${z}cm`, root);
+                }
+            });
+        }
+
+        // 4. Actualizar indicador en la interfaz
+        if (badgeTexto) {
+            const esDefecto = (s === 3.0 && d === 2.5 && i === 3.0 && z === 3.0);
+            badgeTexto.textContent = esDefecto
+                ? 'Márgenes: Por defecto (3 cm / 2,5 cm)'
+                : `Márgenes: Sup ${s} cm · Der ${d} cm · Inf ${i} cm · Izq ${z} cm`;
+        }
+    };
+
+    let backupMargenes = {
+        s: parseVal(hiddenSup?.value, 3.0),
+        d: parseVal(hiddenDer?.value, 2.5),
+        i: parseVal(hiddenInf?.value, 3.0),
+        z: parseVal(hiddenIzq?.value, 3.0),
+    };
+
+    const aplicarMargenes = (sup, der, inf, izq) => {
+        const s = parseVal(sup, 3.0);
+        const d = parseVal(der, 2.5);
+        const i = parseVal(inf, 3.0);
+        const z = parseVal(izq, 3.0);
+
+        if (hiddenSup) hiddenSup.value = s;
+        if (hiddenDer) hiddenDer.value = d;
+        if (hiddenInf) hiddenInf.value = i;
+        if (hiddenIzq) hiddenIzq.value = z;
+
+        if (inputSup) inputSup.value = s;
+        if (inputDer) inputDer.value = d;
+        if (inputInf) inputInf.value = i;
+        if (inputIzq) inputIzq.value = z;
+
+        backupMargenes = { s, d, i, z };
+
+        aplicarMargenesVisuales(s, d, i, z);
+    };
+
+    window.sdayaAplicarMargenes = aplicarMargenes;
+    window.sdayaSyncModalMargenes = () => {
+        const s = parseVal(hiddenSup?.value, 3.0);
+        const d = parseVal(hiddenDer?.value, 2.5);
+        const i = parseVal(hiddenInf?.value, 3.0);
+        const z = parseVal(hiddenIzq?.value, 3.0);
+
+        backupMargenes = { s, d, i, z };
+
+        if (inputSup) inputSup.value = s;
+        if (inputDer) inputDer.value = d;
+        if (inputInf) inputInf.value = i;
+        if (inputIzq) inputIzq.value = z;
+    };
+
+    const onInputCambio = () => {
+        const s = parseVal(inputSup?.value, backupMargenes.s);
+        const d = parseVal(inputDer?.value, backupMargenes.d);
+        const i = parseVal(inputInf?.value, backupMargenes.i);
+        const z = parseVal(inputIzq?.value, backupMargenes.z);
+        aplicarMargenesVisuales(s, d, i, z);
+    };
+
+    [inputSup, inputDer, inputInf, inputIzq].forEach((inp) => {
+        inp?.addEventListener('input', onInputCambio);
+        inp?.addEventListener('change', onInputCambio);
+    });
+
+    const revertirCambios = () => {
+        aplicarMargenesVisuales(backupMargenes.s, backupMargenes.d, backupMargenes.i, backupMargenes.z);
+        if (inputSup) inputSup.value = backupMargenes.s;
+        if (inputDer) inputDer.value = backupMargenes.d;
+        if (inputInf) inputInf.value = backupMargenes.i;
+        if (inputIzq) inputIzq.value = backupMargenes.z;
+    };
+
+    // Botones de abrir en la barra superior (badge u otros con [data-abrir-margenes])
+    document.querySelectorAll('[data-abrir-margenes]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            window.sdayaSyncModalMargenes();
+            modal.showModal?.();
+        });
+    });
+
+    // Botones cerrar y tecla Escape
+    modal.querySelectorAll('[data-cerrar-margenes]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            revertirCambios();
+            modal.close?.();
+        });
+    });
+
+    modal.addEventListener('cancel', () => {
+        revertirCambios();
+    });
+
+    // Cierre al hacer clic en el backdrop del diálogo
+    modal.addEventListener('click', (e) => {
+        const rect = modal.getBoundingClientRect();
+        const isInDialog = (
+            rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+            rect.left <= e.clientX && e.clientX <= rect.left + rect.width
+        );
+        if (!isInDialog) {
+            revertirCambios();
+            modal.close?.();
+        }
+    });
+
+    // Botón restablecer por defecto
+    const btnRestablecer = document.getElementById('btn-restablecer-margenes-inst');
+    if (btnRestablecer) {
+        btnRestablecer.addEventListener('click', () => {
+            if (inputSup) inputSup.value = '3.0';
+            if (inputIzq) inputIzq.value = '3.0';
+            if (inputInf) inputInf.value = '3.0';
+            if (inputDer) inputDer.value = '2.5';
+            onInputCambio();
+        });
+    }
+
+    // Botón aplicar / aceptar
+    const btnAplicar = document.getElementById('btn-aplicar-margenes');
+    if (btnAplicar) {
+        btnAplicar.addEventListener('click', () => {
+            modal.close?.();
+            aplicarMargenes(
+                inputSup?.value,
+                inputDer?.value,
+                inputInf?.value,
+                inputIzq?.value
+            );
+            try {
+                editor.editing?.view?.focus?.();
+            } catch (e) {}
+        });
+    }
+
+    // Inicializar con valores existentes del formulario / wrapper
+    const initSup = wrapper?.dataset?.margenSup ?? hiddenSup?.value ?? 3.0;
+    const initDer = wrapper?.dataset?.margenDer ?? hiddenDer?.value ?? 2.5;
+    const initInf = wrapper?.dataset?.margenInf ?? hiddenInf?.value ?? 3.0;
+    const initIzq = wrapper?.dataset?.margenIzq ?? hiddenIzq?.value ?? 3.0;
+    aplicarMargenes(initSup, initDer, initInf, initIzq);
+}
+
+/**
  * Selector de alineación del encabezado y pie de firma.
  * Sincroniza los botones con los inputs hidden, CKEditor y tarjeta de preview.
  */
@@ -425,10 +671,10 @@ function setupImportadorDocx(editor, wrapper) {
                     const selectFirmante = select('#firmante_id');
 
                     if (inputDestinatario && datos.destinatario && (!inputDestinatario.value || inputDestinatario.value.trim() === '')) {
-                        inputDestinatario.value = datos.destinatario;
+                        inputDestinatario.value = String(datos.destinatario).toUpperCase();
                     }
                     if (inputAsunto && datos.asunto && (!inputAsunto.value || inputAsunto.value.trim() === '')) {
-                        inputAsunto.value = datos.asunto;
+                        inputAsunto.value = String(datos.asunto).toUpperCase();
                     }
                     if (inputFecha && datos.fecha && (!inputFecha.value || inputFecha.value.trim() === '')) {
                         inputFecha.value = datos.fecha;
@@ -476,6 +722,8 @@ async function setupEditors() {
 
         const editor = await ClassicEditor.create(mountTarget, {
             licenseKey: 'GPL',
+            language: 'es',
+            translations: [translations],
             plugins: [
                 Essentials,
                 Paragraph,
@@ -484,10 +732,13 @@ async function setupEditors() {
                 Italic,
                 Underline,
                 Strikethrough,
+                Subscript,
+                Superscript,
                 FontFamily,
                 FontSize,
                 FontColor,
                 FontBackgroundColor,
+                Highlight,
                 RemoveFormat,
                 Alignment,
                 List,
@@ -507,12 +758,17 @@ async function setupEditors() {
                 ImageToolbar,
                 ImageUpload,
                 SDAYAUploadAdapterPlugin,
+                PageMarginsPlugin,
                 HorizontalLine,
                 PageBreak,
                 GeneralHtmlSupport,
                 Link,
                 BlockQuote,
                 PasteFromOffice,
+                SpecialCharacters,
+                SpecialCharactersEssentials,
+                FindAndReplace,
+                SelectAll,
                 Undo,
                 Autoformat,
             ],
@@ -520,20 +776,34 @@ async function setupEditors() {
                 items: [
                     'undo', 'redo',
                     '|',
+                    'heading', 'pageMargins',
+                    '|',
                     'fontFamily', 'fontSize',
                     '|',
-                    'bold', 'italic', 'underline', 'strikethrough',
+                    'fontColor', 'fontBackgroundColor', 'highlight',
                     '|',
-                    'fontColor', 'fontBackgroundColor',
+                    'bold', 'italic', 'underline', 'strikethrough', 'subscript', 'superscript',
                     'removeFormat',
                     '|',
                     'alignment',
                     '|',
                     'bulletedList', 'numberedList', 'outdent', 'indent',
                     '|',
-                    'insertTable', 'imageUpload', 'horizontalLine', 'pageBreak', 'link', 'blockQuote',
+                    'insertTable', 'specialCharacters',
+                    '|',
+                    'imageUpload', 'horizontalLine', 'pageBreak', 'link', 'blockQuote',
+                    '|',
+                    'findAndReplace', 'selectAll',
                 ],
                 shouldNotGroupWhenFull: true,
+            },
+            heading: {
+                options: [
+                    { model: 'paragraph', title: 'Párrafo', class: 'ck-heading_paragraph' },
+                    { model: 'heading1', view: 'h1', title: 'Título 1', class: 'ck-heading_heading1' },
+                    { model: 'heading2', view: 'h2', title: 'Título 2', class: 'ck-heading_heading2' },
+                    { model: 'heading3', view: 'h3', title: 'Título 3', class: 'ck-heading_heading3' },
+                ],
             },
             fontFamily: {
                 options: [
@@ -606,6 +876,7 @@ async function setupEditors() {
             textarea.value = editor.getData();
         });
 
+        setupModalMargenes(editor, wrapper);
         setupAlineacionEncabezado(editor);
         setupImportadorDocx(editor, wrapper);
     }

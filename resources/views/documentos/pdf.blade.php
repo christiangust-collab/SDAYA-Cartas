@@ -3,7 +3,23 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: {{ ($sinMembrete ?? false) ? '160px 60px 95px' : '108px 60px 95px' }}; }
+        @php
+            $margenes = $documento->margenes();
+            $sinMembreteFlag = $sinMembrete ?? false;
+
+            // En preimpreso se añade margen superior extra para el membrete ya impreso físicamente
+            $topCm = $sinMembreteFlag ? max($margenes['top'] + 1.5, 4.5) : $margenes['top'];
+            $rightCm = $margenes['right'];
+            $bottomCm = $margenes['bottom'];
+            $leftCm = $margenes['left'];
+
+            // Convertir a px (1 cm = ~37.8 px para DomPDF a 96dpi)
+            $topPx = round($topCm * 37.8) . 'px';
+            $rightPx = round($rightCm * 37.8) . 'px';
+            $bottomPx = round($bottomCm * 37.8) . 'px';
+            $leftPx = round($leftCm * 37.8) . 'px';
+        @endphp
+        @page { margin: {{ $topPx }} {{ $rightPx }} {{ $bottomPx }} {{ $leftPx }}; }
         * { box-sizing: border-box; }
         body { margin: 0; color: #1f2937; font-family: 'DejaVu Sans', sans-serif; font-size: 10.5pt; line-height: 1.25; }
 
@@ -12,7 +28,7 @@
         @font-face { font-family: 'Montserrat'; src: url("{{ public_path('fonts/Montserrat-Italic.ttf') }}"); font-weight: normal; font-style: italic; }
         @font-face { font-family: 'Montserrat'; src: url("{{ public_path('fonts/Montserrat-BoldItalic.ttf') }}"); font-weight: bold; font-style: italic; }
 
-        .membrete { position: fixed; z-index: -10; top: -108px; right: -60px; bottom: -95px; left: -60px; width: 816px; height: 1056px; }
+        .membrete { position: fixed; z-index: -10; top: -{{ $topPx }}; right: -{{ $rightPx }}; bottom: -{{ $bottomPx }}; left: -{{ $leftPx }}; width: 816px; height: 1056px; }
         .meta { margin-bottom: 26px; text-align: {{ $alineacionEncabezado ?? 'right' }}; }
         .cite { color: #293d61; font-weight: bold; }
         .contenido p { margin: 0 0 4px; line-height: 1.25; }
@@ -28,6 +44,18 @@
         .contenido hr { border: 0; border-top: 1px solid #94a3b8; margin: 12px 0; }
         .contenido .page-break, .contenido .sdaya-page-break { page-break-after: always; break-after: page; height: 0; margin: 0; padding: 0; border: none; line-height: 0; }
         .contenido .page-break span, .contenido .sdaya-page-break span { display: none; }
+        .contenido mark { background-color: #fef08a; padding: 1px 3px; }
+        .contenido mark.marker-yellow { background-color: #fef08a; }
+        .contenido mark.marker-green { background-color: #bbf7d0; }
+        .contenido mark.marker-pink { background-color: #fbcfe8; }
+        .contenido mark.marker-blue { background-color: #bae6fd; }
+        .contenido mark.pen-red { color: #dc2626; background: transparent; }
+        .contenido mark.pen-green { color: #16a34a; background: transparent; }
+        .contenido h1 { font-size: 15pt; color: #1e293b; margin: 12px 0 6px; }
+        .contenido h2 { font-size: 13pt; color: #1e293b; margin: 10px 0 5px; }
+        .contenido h3 { font-size: 11.5pt; color: #1e293b; margin: 8px 0 4px; }
+        .contenido sub { font-size: 75%; line-height: 0; position: relative; vertical-align: baseline; bottom: -0.25em; }
+        .contenido sup { font-size: 75%; line-height: 0; position: relative; vertical-align: baseline; top: -0.5em; }
         .contenido { position: relative; }
         .contenido img.ql-flotante { position: absolute; z-index: -1; }
         .contenido .ql-align-center, .contenido .text-align-center, .contenido .sdaya-align-center { text-align: center; }

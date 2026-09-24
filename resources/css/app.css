@@ -370,7 +370,6 @@
     margin: 0 auto;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
     border-radius: 0.75rem !important;
-    overflow: hidden;
 }
 
 .ck.ck-toolbar {
@@ -379,11 +378,22 @@
     border-color: #cbd5e1 !important;
     background-color: #f8fafc !important;
     padding: 0.5rem !important;
+    position: relative;
+    z-index: 20;
 }
 
+.ck.ck-toolbar .ck-dropdown__panel {
+    z-index: 100 !important;
+}
+
+.document-sheet-wrapper .ck.ck-editor__editable_inline,
+.document-sheet-wrapper .ck-content.ck-editor__editable,
 .ck.ck-editor__editable_inline {
     min-height: 520px !important;
-    padding: 2.5rem 3rem !important;
+    padding-top: var(--ck-margin-top, 3cm) !important;
+    padding-right: var(--ck-margin-right, 2.5cm) !important;
+    padding-bottom: var(--ck-margin-bottom, 3cm) !important;
+    padding-left: var(--ck-margin-left, 3cm) !important;
     background-color: #ffffff !important;
     font-family: 'Montserrat', Arial, sans-serif !important;
     font-size: 11pt !important;
@@ -392,6 +402,8 @@
     border-bottom-left-radius: 0.75rem !important;
     border-bottom-right-radius: 0.75rem !important;
     border-color: #cbd5e1 !important;
+    box-sizing: border-box !important;
+    transition: padding 0.15s ease-in-out !important;
 }
 
 .ck-content p {

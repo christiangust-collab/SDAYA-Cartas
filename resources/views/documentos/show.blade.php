@@ -74,8 +74,9 @@
                         'center' => 'text-center',
                         default  => 'text-right',
                     };
+                    $margenes = $documento->margenes();
                 @endphp
-                <section class="bg-white px-5 pt-5 sm:px-8" aria-label="Encabezado del documento">
+                <section class="bg-white px-5 pt-5 sm:pt-6" style="padding-left: {{ $margenes['left'] }}cm; padding-right: {{ $margenes['right'] }}cm;" aria-label="Encabezado del documento">
                     <div class="{{ $alineacionEncabezado }} leading-relaxed text-slate-800">
                         <p>{{ $lugarDocumento }}, {{ $documento->fecha_documento->locale('es')->translatedFormat('d \d\e F \d\e Y') }}</p>
                         @if ($documento->cite)
@@ -86,7 +87,7 @@
                     </div>
                 </section>
 
-                <section class="min-h-72 bg-white p-5 sm:p-8" aria-label="Contenido de la carta">
+                <section class="min-h-72 bg-white px-5 py-5 sm:pb-[3cm]" style="padding-left: {{ $margenes['left'] }}cm; padding-right: {{ $margenes['right'] }}cm;" aria-label="Contenido de la carta">
                     <div class="document-content">{!! $documento->contenido !!}</div>
 
                     @php
@@ -218,7 +219,7 @@
                         <a href="{{ route('verificar.pdf', $documento->hash_verificacion) }}" target="_blank" rel="noopener" class="btn-secondary w-full"><x-icon name="eye" size="18" /> Ver PDF en navegador</a>
                         <a href="{{ route('documentos.descargar', [$documento, 'docx']) }}" class="btn-ghost w-full"><x-icon name="file-text" size="18" /> Descargar Word (.docx)</a>
                         <a href="{{ route('documentos.descargar', [$documento, 'pdf']) }}?preimpreso=1" class="btn-ghost w-full border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50">
-                            <x-icon name="printer" size="16" class="text-slate-500" /> PDF para papel preimpreso (sin logo)
+                            <x-icon name="printer" size="16" class="text-slate-500" /> PDF para papel preimpreso (sin membrete)
                         </a>
                     </div>
                     @if ($documento->emitido_at)

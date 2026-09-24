@@ -78,6 +78,25 @@ final class HtmlParaDocumento
             }
         }
 
+        // Convertir <mark> a <span> para compatibilidad con PHPWord
+        $marks = [];
+        foreach ($raiz->getElementsByTagName('mark') as $m) {
+            $marks[] = $m;
+        }
+        foreach ($marks as $m) {
+            $span = $documento->createElement('span');
+            if ($m->hasAttribute('class')) {
+                $span->setAttribute('class', $m->getAttribute('class'));
+            }
+            if ($m->hasAttribute('style')) {
+                $span->setAttribute('style', $m->getAttribute('style'));
+            }
+            while ($m->firstChild !== null) {
+                $span->appendChild($m->firstChild);
+            }
+            $m->parentNode?->replaceChild($span, $m);
+        }
+
         foreach ($this->elementos($raiz) as $elemento) {
             $clases = $elemento->getAttribute('class');
 
@@ -219,6 +238,30 @@ final class HtmlParaDocumento
         if (preg_match('/^ql-size-(\d{2})$/', $clase, $tamanio) === 1
             && in_array($tamanio[1], self::TAMANIOS, true)) {
             return ['font-size' => $tamanio[1].'pt'];
+        }
+
+        if ($clase === 'marker-yellow') {
+            return ['background-color' => '#fef08a'];
+        }
+
+        if ($clase === 'marker-green') {
+            return ['background-color' => '#bbf7d0'];
+        }
+
+        if ($clase === 'marker-pink') {
+            return ['background-color' => '#fbcfe8'];
+        }
+
+        if ($clase === 'marker-blue') {
+            return ['background-color' => '#bae6fd'];
+        }
+
+        if ($clase === 'pen-red') {
+            return ['color' => '#dc2626'];
+        }
+
+        if ($clase === 'pen-green') {
+            return ['color' => '#16a34a'];
         }
 
         return [];

@@ -23,8 +23,8 @@ final class GuardarDocumentoRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'asunto' => $this->textoOpcional('asunto'),
-            'destinatario' => $this->textoOpcional('destinatario'),
+            'asunto' => $this->textoMayusculas('asunto'),
+            'destinatario' => $this->textoMayusculas('destinatario'),
             'lugar' => $this->textoOpcional('lugar'),
             'alineacion_encabezado' => in_array($this->input('alineacion_encabezado'), ['left', 'center', 'right'], true)
                 ? $this->input('alineacion_encabezado')
@@ -32,7 +32,28 @@ final class GuardarDocumentoRequest extends FormRequest
             'alineacion_pie_firma' => in_array($this->input('alineacion_pie_firma'), ['left', 'center', 'right'], true)
                 ? $this->input('alineacion_pie_firma')
                 : (in_array($this->input('alineacion_encabezado'), ['left', 'center', 'right'], true) ? $this->input('alineacion_encabezado') : 'right'),
+            'margen_superior' => $this->numeroMargen('margen_superior', 3.0),
+            'margen_derecho' => $this->numeroMargen('margen_derecho', 2.5),
+            'margen_inferior' => $this->numeroMargen('margen_inferior', 3.0),
+            'margen_izquierdo' => $this->numeroMargen('margen_izquierdo', 3.0),
         ]);
+    }
+
+    private function numeroMargen(string $campo, float $default): float
+    {
+        $val = str_replace(',', '.', trim((string) $this->input($campo)));
+        if (! is_numeric($val)) {
+            return $default;
+        }
+
+        return max(0.0, min(10.0, round((float) $val, 1)));
+    }
+
+    private function textoMayusculas(string $campo): ?string
+    {
+        $valor = trim((string) $this->input($campo));
+
+        return $valor === '' ? null : mb_strtoupper($valor, 'UTF-8');
     }
 
     private function textoOpcional(string $campo): ?string
@@ -64,6 +85,10 @@ final class GuardarDocumentoRequest extends FormRequest
             'lugar' => ['nullable', 'string', 'max:80'],
             'alineacion_encabezado' => ['required', Rule::in(['left', 'center', 'right'])],
             'alineacion_pie_firma' => ['required', Rule::in(['left', 'center', 'right'])],
+            'margen_superior' => ['nullable', 'numeric', 'min:0', 'max:10'],
+            'margen_derecho' => ['nullable', 'numeric', 'min:0', 'max:10'],
+            'margen_inferior' => ['nullable', 'numeric', 'min:0', 'max:10'],
+            'margen_izquierdo' => ['nullable', 'numeric', 'min:0', 'max:10'],
             'asunto' => ['nullable', 'string', 'max:250'],
             'destinatario' => ['nullable', 'string', 'max:250'],
             'firmante_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
