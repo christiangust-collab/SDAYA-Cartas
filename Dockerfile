@@ -12,7 +12,8 @@ RUN npm run build
 FROM php:8.3-apache-bookworm AS php-base
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public \
-    COMPOSER_ALLOW_SUPERUSER=1
+    COMPOSER_ALLOW_SUPERUSER=1 \
+    TZ=America/La_Paz
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
