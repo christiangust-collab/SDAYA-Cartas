@@ -118,20 +118,26 @@
                     <caption class="sr-only">Documentos registrados en el sistema</caption>
                     <thead class="border-b border-slate-200 bg-slate-50/80 text-[10px] tracking-[0.12em] text-slate-500 uppercase">
                         <tr>
-                            <th scope="col" class="px-5 py-3 font-bold">CITE / Borrador</th>
-                            <th scope="col" class="px-5 py-3 font-bold">Destinatario</th>
-                            <th scope="col" class="px-5 py-3 font-bold">Referencia</th>
-                            <th scope="col" class="px-5 py-3 font-bold">Clasificación</th>
-                            <th scope="col" class="px-5 py-3 font-bold">Estado</th>
-                            <th scope="col" class="px-5 py-3 font-bold">Actualizado</th>
-                            <th scope="col" class="px-5 py-3 text-right font-bold">Acción</th>
+                            <th scope="col" class="px-4 py-3 font-bold">CITE / Borrador</th>
+                            <th scope="col" class="px-4 py-3 font-bold">Destinatario</th>
+                            <th scope="col" class="px-4 py-3 font-bold">Referencia</th>
+                            <th scope="col" class="px-4 py-3 font-bold">Clasificación</th>
+                            <th scope="col" class="px-4 py-3 font-bold">Estado</th>
+                            <th scope="col" class="px-4 py-3 font-bold">Actualizado</th>
+                            <th scope="col" class="sticky right-0 z-10 bg-slate-50 px-4 py-3 text-right font-bold shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)]">Acción</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($documentos as $documento)
                             <tr class="group transition-colors hover:bg-slate-50">
-                                <td class="px-5 py-4 whitespace-nowrap"><span class="font-mono font-bold text-slate-900">{{ $documento->cite ?: 'BORRADOR #'.$documento->id }}</span><br><span class="text-xs text-slate-500">{{ $documento->fecha_documento->format('d/m/Y') }}</span></td>
-                                <td class="max-w-xs px-5 py-4">
+                                <td class="px-4 py-3.5 whitespace-nowrap">
+                                    <a href="{{ route('documentos.show', $documento) }}" class="font-mono font-bold text-slate-900 hover:text-sdaya-700 hover:underline">
+                                        {{ $documento->cite ?: 'BORRADOR #'.$documento->id }}
+                                    </a>
+                                    <br>
+                                    <span class="text-xs text-slate-500">{{ $documento->fecha_documento->format('d/m/Y') }}</span>
+                                </td>
+                                <td class="max-w-[12rem] px-4 py-3.5">
                                     @if (filled($documento->destinatario))
                                         <div class="flex items-start gap-1.5">
                                             <span class="mt-0.5 shrink-0 text-slate-400"><x-icon name="user" size="14" /></span>
@@ -141,18 +147,18 @@
                                         <span class="text-xs italic text-slate-400">Sin destinatario</span>
                                     @endif
                                 </td>
-                                <td class="max-w-xs px-5 py-4">
-                                    <p class="font-bold text-slate-950 text-xs leading-snug line-clamp-2" title="{{ $documento->asunto }}">
+                                <td class="max-w-[15rem] px-4 py-3.5">
+                                    <a href="{{ route('documentos.show', $documento) }}" class="font-bold text-slate-950 text-xs leading-snug line-clamp-2 hover:text-sdaya-700 hover:underline block" title="{{ $documento->asunto }}">
                                         {{ $documento->asunto ?: \Illuminate\Support\Str::limit(trim(strip_tags($documento->contenido)), 70) }}
-                                    </p>
+                                    </a>
                                 </td>
-                                <td class="px-5 py-4 whitespace-nowrap">
+                                <td class="px-4 py-3.5 whitespace-nowrap">
                                     <span class="font-bold">{{ $documento->area->codigo }}</span> · {{ $documento->tipo->codigo }}
-                                    <p class="mt-0.5 text-[11px] font-bold text-slate-500 truncate max-w-40" title="{{ $documento->datosEmpresa()['nombre'] }}">{{ $documento->datosEmpresa()['nombre'] }}</p>
+                                    <p class="mt-0.5 text-[11px] font-bold text-slate-500 truncate max-w-[11rem]" title="{{ $documento->datosEmpresa()['nombre'] }}">{{ $documento->datosEmpresa()['nombre'] }}</p>
                                 </td>
-                                <td class="px-5 py-4 whitespace-nowrap"><x-estado-badge :estado="$documento->estado" /></td>
-                                <td class="px-5 py-4 text-slate-600 text-xs whitespace-nowrap">{{ $documento->updated_at->diffForHumans() }}</td>
-                                <td class="px-5 py-4 text-right whitespace-nowrap">
+                                <td class="px-4 py-3.5 whitespace-nowrap"><x-estado-badge :estado="$documento->estado" /></td>
+                                <td class="px-4 py-3.5 text-slate-600 text-xs whitespace-nowrap">{{ $documento->updated_at->diffForHumans() }}</td>
+                                <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 px-4 py-3.5 text-right whitespace-nowrap shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)]">
                                     <a href="{{ route('documentos.show', $documento) }}" class="focus-ring inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-extrabold transition-colors hover:bg-slate-100 {{ $documento->estaBorrador() ? 'text-amber-800 hover:text-amber-950' : 'text-slate-700 hover:text-slate-950' }}">
                                         @if ($documento->estaBorrador())
                                             <x-icon name="eye" size="15" /> Ver borrador
